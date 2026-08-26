@@ -12,9 +12,8 @@ jobs:
     strategy:
       matrix:
         nixOpts: [
-            { flag: "", tag: "nixos-unstable" },
-            { flag: "--override-input nixpkgs https://channels.nixos.org/nixos-25.11/nixexprs.tar.xz", tag: "nixos-25.11" },
-            { flag: "--override-input nixpkgs https://channels.ctrl-os.com/channel/ctrlos-24.05.tar.xz", tag: "ctrlos-24.05" },
+            { flag: "", tag: "cyberus-linux-26.05" },
+            { flag: "--override-input nixpkgs https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz", tag: "nixos-unstable" },
           ]
     steps:
       - uses: actions/checkout@v5

@@ -57,15 +57,14 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1767767207,
-        "narHash": "sha256-LmdqDciUNW4a3tFH539SorGLD/5t8PFOXhEQlIxbtww=",
-        "rev": "5912c1772a44e31bf1c63c0390b90501e5026886",
+        "lastModified": 315532800,
+        "narHash": "sha256-4/SmRsDCVZx5BILj4Dyf5i66Lni4hdqRRSFCldCy1Ng=",
         "type": "tarball",
-        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.05pre923638.5912c1772a44/nixexprs.tar.xz"
+        "url": "https://channels.ctrl-os.com/permanent/ctrlos-2d27c9c1abf2fae5c6ddf7051f1c15858c8b5eb7.tar.xz"
       },
       "original": {
         "type": "tarball",
-        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
+        "url": "https://channels.cyberus-linux.com/channel/cyberus-linux-26.05.tar.xz"
       }
     },
     "nixpkgs-lib": {

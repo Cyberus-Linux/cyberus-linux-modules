@@ -4,7 +4,7 @@
   # The inputs are only used for checks. We test this flake with
   # different Nixpkgs versions and with CTRL-OS in the CI.
   inputs = {
-    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
+    nixpkgs.url = "https://channels.cyberus-linux.com/channel/cyberus-linux-26.05.tar.xz";
     preCommitHooksNix = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
