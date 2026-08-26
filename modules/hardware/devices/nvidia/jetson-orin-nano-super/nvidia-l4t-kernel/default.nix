@@ -5,9 +5,9 @@
   kernelPatches,
   withSimpledrm ? true,
   ...
-# This needs to forward additional `.override` args to `buildLinux`.
-# See `nixos/modules/system/boot/kernel.nix`.
-# This is how e.g. `boot.kernelPatches` is implemented.
+  # This needs to forward additional `.override` args to `buildLinux`.
+  # See `nixos/modules/system/boot/kernel.nix`.
+  # This is how e.g. `boot.kernelPatches` is implemented.
 }@args:
 
 let
@@ -25,7 +25,7 @@ buildLinux (
     };
     inherit kernelPatches;
     structuredExtraConfig = {
-      LOCALVERSION = lib.kernel.freeform ''-${tag}'';
+      LOCALVERSION = lib.kernel.freeform "-${tag}";
       # Driver build is broken from backport of new drivers.
       # ../drivers/media/pci/intel/ipu6/../ipu-dma.c:53:17: error: implicit declaration of function 'clflush_cache_range'; did you mean 'flush_cache_range'? [-Werror=implicit-function-declaration]
       VIDEO_INTEL_IPU6 = lib.kernel.no;
