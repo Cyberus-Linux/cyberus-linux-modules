@@ -29,8 +29,13 @@
         # Only run the `pre-commit` checks when ran using the locked Nixpkgs.
         # This ensures our CI isn't running those checks when we override the Nixpkgs input.
         inputs.nixpkgs.lib.optionals
-          (inputs.nixpkgs.lib.versionAtLeast inputs.nixpkgs.lib.version
-            (import ./lib { lib = { }; }).lockedNixpkgsVersion
+          (
+            let
+              inherit (import ./lib { inherit (inputs.nixpkgs) lib; })
+                getFlakeInput
+                ;
+            in
+            (getFlakeInput "nixpkgs").locked.narHash == inputs.nixpkgs.sourceInfo.narHash
           )
           [
             inputs.preCommitHooksNix.flakeModule
