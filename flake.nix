@@ -61,8 +61,7 @@
                   ];
           };
 
-          # CTRL-OS 24.05 doesn't have this package.
-          formatter = pkgs.nixfmt-tree or null;
+          formatter = pkgs.nixfmt-tree;
         };
     };
 }
