@@ -31,7 +31,7 @@ in
           ];
 
           extra-substituters = [
-            "https://cache.ctrl-os.com/"
+            "https://cache.cyberus-linux.com/"
           ];
         };
       };
