@@ -7,11 +7,11 @@
 }:
 
 let
-  cfg = config.ctrl-os.hardware.devices.nvidia-jetson-orin-nano-super;
+  cfg = config.cyberus-linux.hardware.devices.nvidia-jetson-orin-nano-super;
 in
 {
   options = {
-    ctrl-os.hardware.devices.nvidia-jetson-orin-nano-super = {
+    cyberus-linux.hardware.devices.nvidia-jetson-orin-nano-super = {
       enableOotModules = lib.mkEnableOption "the NVIDIA Out-Of-Tree kernel modules" // {
         default = true;
       };
