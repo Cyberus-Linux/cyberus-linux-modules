@@ -1,12 +1,12 @@
-# CTRL-OS Modules
+# Cyberus Linux Modules
 
 This repository is a collection of curated modules that work great
-with [CTRL-OS](https://ctrl-os.com/) (and NixOS).
+with [Cyberus Linux](https://cyberus-linux.com/) (and NixOS).
 
 ## Module Documentation
 
 Detailed module documentation and Getting Started guides are soon available on
-[docs.ctrl-os.com](https://docs.ctrl-os.com/).
+[docs.cyberus-linux.com](https://docs.cyberus-linux.com/).
 
 All modules are available via `nixosModules` of this Flake. If you don't use
 Flakes, import the module file in `/modules` directly. We will streamline this
@@ -23,7 +23,7 @@ significantly. Modules marked **Stable** will only change in
 backward-compatible ways.
 
 Module documentation lives on
-[docs.ctrl-os.com](https://docs.ctrl-os.com/modules/). Click the
+[docs.cyberus-linux.com](https://docs.cyberus-linux.com/modules/). Click the
 module link to go directly to the documentation of a specific module.
 
 Modules may not be supported on all releases. We use the following
@@ -33,14 +33,14 @@ status symbols:
 - 🚧 - Planned/WIP
 - ❌ - Not Planned
 
-| Module                                                           | Status     | Unstable | 26.05 | 24.05 | Description                                |
-|------------------------------------------------------------------|------------|----------|-------|-------|--------------------------------------------|
-| [`profiles`](https://docs.ctrl-os.com/modules/ctrl-os-profiles/) | **Stable** | ✅       | 🚧    | ✅    | Different opinionated settings for CTRL-OS |
-| [`vms`](https://docs.ctrl-os.com/modules/ctrl-os-vms/)           | **Beta**   | ✅       | 🚧    | ❌    | Declarative way to run generic VMs         |
+| Module                                                                       | Status     | Unstable | 26.05 | 24.05 | Description                                     |
+|------------------------------------------------------------------------------|------------|----------|-------|-------|-------------------------------------------------|
+| [`profiles`](https://docs.cyberus-linux.com/modules/cyberus-linux-profiles/) | **Stable** | ✅       | 🚧    | ✅    | Different opinionated settings for Cyberus Linux |
+| [`vms`](https://docs.cyberus-linux.com/modules/cyberus-linux-vms/)           | **Beta**   | ✅       | 🚧    | ❌    | Declarative way to run generic VMs               |
 
 ## Hardware Support
 
-CTRL-OS works fine on many platforms. Especially Intel/AMD systems
+Cyberus Linux works fine on many platforms. Especially Intel/AMD systems
 should in general Just Work. We maintain opinionated hardware support
 for platforms that have sharp edges.
 
