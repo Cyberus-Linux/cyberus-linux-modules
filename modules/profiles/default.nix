@@ -1,6 +1,6 @@
 {
   imports = [
     ./developer
-    ./ctrl-os-system
+    ./cyberus-linux-system
   ];
 }

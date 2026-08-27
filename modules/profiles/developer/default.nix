@@ -1,7 +1,7 @@
 { config, lib, ... }:
 
 let
-  cfg = config.ctrl-os.profiles.developer;
+  cfg = config.cyberus-linux.profiles.developer;
 
   # Makes an "enable" option that defaults to the `developer.enable` state.
   mkDefaultEnable =
@@ -9,24 +9,24 @@ let
     (lib.mkEnableOption description)
     // {
       default = cfg.enable;
-      defaultText = "config.ctrl-os.profiles.developer.enable";
+      defaultText = "config.cyberus-linux.profiles.developer.enable";
     };
 in
 {
   options = {
-    ctrl-os.profiles.developer = {
-      enable = lib.mkEnableOption "the opinionated CTRL-OS developer settings";
+    cyberus-linux.profiles.developer = {
+      enable = lib.mkEnableOption "the opinionated Cyberus Linux developer settings";
       useFlakes = mkDefaultEnable "system-wide usage of Flakes";
-      useCache = mkDefaultEnable "system-wide usage of the CTRL-OS binary cache";
+      useCache = mkDefaultEnable "system-wide usage of the Cyberus Linux binary cache";
     };
   };
 
   config = lib.mkMerge [
     (lib.mkIf cfg.useCache {
-      ctrl-os.profiles.ctrl-os-system.useCache = true;
+      cyberus-linux.profiles.cyberus-linux-system.useCache = true;
     })
     (lib.mkIf cfg.useFlakes {
-      ctrl-os.profiles.ctrl-os-system.useFlakes = true;
+      cyberus-linux.profiles.cyberus-linux-system.useFlakes = true;
     })
   ];
 }
