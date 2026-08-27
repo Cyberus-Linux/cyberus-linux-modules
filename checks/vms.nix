@@ -44,7 +44,7 @@ testers.nixosTest {
     virtualisation.memorySize = 4096;
     virtualisation.diskSize = 16384;
     networking.hostId = "cafecafe";
-    ctrl-os.vms = {
+    cyberus-linux.vms = {
       gatewayInterface = "eth0";
       networks = {
         test = {

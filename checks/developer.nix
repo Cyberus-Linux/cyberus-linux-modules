@@ -5,7 +5,7 @@ testers.nixosTest {
   nodes.machine = {
     imports = [ nixosModules.profiles ];
 
-    ctrl-os.profiles.developer.enable = true;
+    cyberus-linux.profiles.developer.enable = true;
   };
 
   testScript = ''
