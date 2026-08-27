@@ -13,6 +13,13 @@ let
     };
 in
 {
+  imports = [
+    (lib.mkRenamedOptionModule
+      [ "cyberus-linux" "profiles" "ctrl-os-system" ]
+      [ "cyberus-linux" "profiles" "cyberus-linux-system" ]
+    )
+  ];
+
   options = {
     cyberus-linux.profiles.cyberus-linux-system = {
       enable = lib.mkEnableOption "the opinionated settings for an installed Cyberus Linux system";
