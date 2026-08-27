@@ -106,7 +106,7 @@ let
           type = types.ints.positive;
           description = ''
             Specify the number of cores the virtual machine is permitted to use.
-            The number cannot be higher than `ctrl-os.vms.maxCores`
+            The number cannot be higher than `cyberus-linux.vms.maxCores`
           '';
         };
 
@@ -116,7 +116,7 @@ let
           type = types.ints.positive;
           description = ''
             The memory size in megabytes the vm is permitted to use.
-            The number must not be higher than `ctrl-os.vms.maxMemory
+            The number must not be higher than `cyberus-linux.vms.maxMemory
           '';
         };
 
@@ -192,7 +192,7 @@ let
       };
     };
 
-  cfg = config.ctrl-os.vms;
+  cfg = config.cyberus-linux.vms;
 
   mkVMService =
     name: options:
@@ -366,9 +366,10 @@ in
   imports = [
     ./internal/sclctl.nix
     ./internal/scl-singlenode.nix
+    (lib.mkRenamedOptionModule [ "ctrl-os" "vms" ] [ "cyberus-linux" "vms" ])
   ];
 
-  options.ctrl-os.vms = {
+  options.cyberus-linux.vms = {
     gatewayInterface = mkOption {
       description = ''
         The network interface that should be used to allow internet access for virtual machines
