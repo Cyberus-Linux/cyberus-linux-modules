@@ -11,17 +11,17 @@ The pattern used for profiles is the following:
 { config, lib, ... }:
 
 let
-  cfg = config.ctrl-os.profiles.${profileName};
+  cfg = config.cyberus-linux.profiles.${profileName};
   # Makes an "enable" option that defaults to the `${profileName}.enable` state.
   mkDefaultEnable = description:
     (lib.mkEnableOption description) // {
       default = cfg.enable;
-      defaultText = "config.ctrl-os.profiles.${profileName}.enable";
+      defaultText = "config.cyberus-linux.profiles.${profileName}.enable";
     }
   ;
 {
   options = {
-    ctrl-os.profiles.${profileName} = {
+    cyberus-linux.profiles.${profileName} = {
       enable = lib.mkEnableOption "the [...] options";
       # Then, as needed, discrete options for the collection.
       useFoo = mkDefaultEnable "enabling systemd-wide usage of foo";

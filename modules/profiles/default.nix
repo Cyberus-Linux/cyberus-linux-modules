@@ -1,6 +1,9 @@
+{ lib, ... }:
 {
   imports = [
     ./developer
-    ./ctrl-os-system
+    ./cyberus-linux-system
+
+    (lib.mkRenamedOptionModule [ "ctrl-os" "profiles" ] [ "cyberus-linux" "profiles" ])
   ];
 }

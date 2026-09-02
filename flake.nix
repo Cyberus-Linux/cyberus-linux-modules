@@ -1,8 +1,8 @@
 {
-  description = "A collection of curated modules that work great with CTRL-OS (and NixOS)";
+  description = "A collection of curated modules that work great with Cyberus Linux (and NixOS)";
 
   # The inputs are only used for checks. We test this flake with
-  # different Nixpkgs versions and with CTRL-OS in the CI.
+  # different Nixpkgs versions and with Cyberus Linux in the CI.
   inputs = {
     nixpkgs.url = "https://channels.cyberus-linux.com/channel/cyberus-linux-26.05.tar.xz";
     preCommitHooksNix = {

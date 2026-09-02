@@ -1,24 +1,31 @@
 { config, lib, ... }:
 
 let
-  cfg = config.ctrl-os.profiles.ctrl-os-system;
+  cfg = config.cyberus-linux.profiles.cyberus-linux-system;
 
-  # Makes an "enable" option that defaults to the `ctrl-os-system.enable` state.
+  # Makes an "enable" option that defaults to the `cyberus-linux-system.enable` state.
   mkDefaultEnable =
     description:
     (lib.mkEnableOption description)
     // {
       default = cfg.enable;
-      defaultText = "config.ctrl-os.profiles.ctrl-os-system.enable";
+      defaultText = "config.cyberus-linux.profiles.cyberus-linux-system.enable";
     };
 in
 {
+  imports = [
+    (lib.mkRenamedOptionModule
+      [ "cyberus-linux" "profiles" "ctrl-os-system" ]
+      [ "cyberus-linux" "profiles" "cyberus-linux-system" ]
+    )
+  ];
+
   options = {
-    ctrl-os.profiles.ctrl-os-system = {
-      enable = lib.mkEnableOption "the opinionated settings for an installed CTRL-OS system";
+    cyberus-linux.profiles.cyberus-linux-system = {
+      enable = lib.mkEnableOption "the opinionated settings for an installed Cyberus Linux system";
       # NOTE: The following module logical settings are re-used in other modules.
       useFlakes = mkDefaultEnable "system-wide usage of Flakes";
-      useCache = mkDefaultEnable "system-wide usage of the CTRL-OS binary cache";
+      useCache = mkDefaultEnable "system-wide usage of the Cyberus Linux binary cache";
     };
   };
 
