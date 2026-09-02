@@ -12,8 +12,9 @@
 let
   # The image must be a raw image.
   image = fetchurl {
-    # TODO Find a permanently available image. Ubuntu removes these after a while.
-    url = "https://cloud-images.ubuntu.com/noble/20260225/noble-server-cloudimg-amd64.img";
+    # Cloud images, while they get removed from the `/$release/$date/` directory on `cloud-image`,
+    # are available under `/releases/$release/release-$date/` on `cloud-images-archive`.
+    url = "http://cloud-images-archive.ubuntu.com/releases/noble/release-20260225/ubuntu-24.04-server-cloudimg-amd64.img";
     sha256 = "sha256-eqbZ9eijpVx0RbE40xpz0Rh4cSEbK32p2i4abL8WmyE=";
   };
   imageRaw = runCommand "convert-RAW" { } ''

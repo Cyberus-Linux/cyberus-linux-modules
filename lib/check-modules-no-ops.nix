@@ -20,6 +20,7 @@
 
       # Minimum config for evaluation purpose.
       # `boot.isContainer` will not work as hoped.
+      fileSystems."/".fsType = lib.mkDefault "ext4";
       fileSystems."/".device = lib.mkDefault "nodev";
       boot.loader.grub.devices = lib.mkDefault [ "nodev" ];
       nixpkgs.hostPlatform = lib.mkDefault pkgs.stdenv.hostPlatform.system;

@@ -11,11 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        nixOpts: [
-            { flag: "", tag: "nixos-unstable" },
-            { flag: "--override-input nixpkgs https://channels.nixos.org/nixos-25.11/nixexprs.tar.xz", tag: "nixos-25.11" },
-            { flag: "--override-input nixpkgs https://channels.ctrl-os.com/channel/ctrlos-24.05.tar.xz", tag: "ctrlos-24.05" },
-          ]
+        channel:
+          # With the pinned release.
+          - "default"
+          # With the latest 26.05 release
+          - "cyberus-linux-26.05"
+          # With the latest nixos-unstable release
+          - "nixos-unstable"
     steps:
       - uses: actions/checkout@v5
       - uses: samueldr/lix-gha-installer-action@latest
@@ -24,16 +26,16 @@ jobs:
             keep-env-derivations = true
             keep-outputs = true
             extra-trusted-public-keys = ctrl-os:baPzGxj33zp/P+GAIJXsr8ss9Law+qEEFViX1+flbv8=
-            extra-substituters = https://cache.ctrl-os.com/
+            extra-substituters = https://cache.cyberus-linux.com/
       - name: Restore cache
         id: cache
         uses: actions/cache@v5
         with:
           path: .cache
-          key: cache-${{ matrix.nixOpts.tag }}-${{ github.ref_name }}-${{ github.run_id }}
+          key: cache-${{ matrix.channel }}-${{ github.ref_name }}-${{ github.run_id }}
           restore-keys: |
-            cache-${{ matrix.nixOpts.tag }}-${{ github.ref_name }}-
-            cache-${{ matrix.nixOpts.tag }}-
+            cache-${{ matrix.channel }}-${{ github.ref_name }}-
+            cache-${{ matrix.channel }}-
       - name: Repopulate Nix Store
         if: steps.cache.outputs.cache-hit
         run: |
@@ -43,8 +45,23 @@ jobs:
           else
             echo No cache to restore.
           fi
-      - name: Build the Modules for ${{ matrix.nixOpts.tag }}
-        run: nix -L flake check ${{ matrix.nixOpts.flag }}
+      - name: Build the Modules for ${{ matrix.channel }}
+        run: |
+          set -eux
+          if [[ "${{ matrix.channel }}" == cyberus-linux-* ]]; then
+              channel=https://channels.cyberus-linux.com/channel/${{ matrix.channel }}.tar.xz
+          else
+              channel=https://channels.nixos.org/${{ matrix.channel }}/nixexprs.tar.xz
+          fi
+          nix_args=()
+
+          if [[ "${{ matrix.channel }}" != "default" ]]; then
+            nix_args+=(
+              --override-input nixpkgs "$channel"
+            )
+          fi
+
+          nix -L flake check ${nix_args[@]}
       - name: Export Nix Store
         if: always()
         run: |

@@ -4,7 +4,7 @@
   # The inputs are only used for checks. We test this flake with
   # different Nixpkgs versions and with CTRL-OS in the CI.
   inputs = {
-    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
+    nixpkgs.url = "https://channels.cyberus-linux.com/channel/cyberus-linux-26.05.tar.xz";
     preCommitHooksNix = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -29,8 +29,13 @@
         # Only run the `pre-commit` checks when ran using the locked Nixpkgs.
         # This ensures our CI isn't running those checks when we override the Nixpkgs input.
         inputs.nixpkgs.lib.optionals
-          (inputs.nixpkgs.lib.versionAtLeast inputs.nixpkgs.lib.version
-            (import ./lib { lib = { }; }).lockedNixpkgsVersion
+          (
+            let
+              inherit (import ./lib { inherit (inputs.nixpkgs) lib; })
+                getFlakeInput
+                ;
+            in
+            (getFlakeInput "nixpkgs").locked.narHash == inputs.nixpkgs.sourceInfo.narHash
           )
           [
             inputs.preCommitHooksNix.flakeModule
@@ -61,8 +66,7 @@
                   ];
           };
 
-          # CTRL-OS 24.05 doesn't have this package.
-          formatter = pkgs.nixfmt-tree or null;
+          formatter = pkgs.nixfmt-tree;
         };
     };
 }
