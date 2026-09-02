@@ -58,6 +58,13 @@ let
       options =
         # Cleanup `options` eagerly.
         options // {
+          warnings = options.warnings // {
+            # This works around warnings being created by mkRenamedOptionModule.
+            # We don't actually care about new *definitions* for warnings.
+            # For warnings, though, a new warning being enabled is what matters.
+            # (New warnings unexpectedly enabled are still caught.)
+            files = [ ];
+          };
           meta = builtins.removeAttrs (options.meta or { }) [
             # meta.maintainers historically may contain bogus entries that abort evaluation.
             # This is problematic for no-op checking, so don't check for those.
