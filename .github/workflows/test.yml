@@ -19,6 +19,11 @@ jobs:
           # With the latest nixos-unstable release
           - "nixos-unstable"
     steps:
+      # Avoid: unshare: Operation not permitted
+      #
+      # This happens when systemd-repart builds images otherwise.
+      - name: Disable AppArmor
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - uses: actions/checkout@v5
       - uses: samueldr/lix-gha-installer-action@latest
         with:
