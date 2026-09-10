@@ -13,9 +13,6 @@
 let
   cfg = config.cyberus-linux.image;
 
-  # Integer division rounding up.
-  ceil = a: b: (a + b - 1) / b;
-
   inherit (pkgs.stdenv.hostPlatform) efiArch;
 in
 {
@@ -40,21 +37,26 @@ in
       default = true;
     };
 
+    bootDevice = lib.mkOption {
+      description = ''
+        The boot device name (if known).
+
+        Setting a boot device creates smaller disk images.
+
+        When the boot device is known, the initial disk image doesn't
+        need to include the user data partition. It is instead created
+        on first boot. This is a result of a technical limitation in
+        `systemd-repart` and might be resolved eventually.
+      '';
+
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+    };
+
     espSizeMiB = lib.mkOption {
       description = "The size of the UEFI System Partition (ESP) in MiB";
       type = lib.types.int;
       default = 512;
-    };
-
-    maxStoreSizeMiB = lib.mkOption {
-      description = ''
-        The maximum size of the Nix store partition.
-
-        This must be set manually, because it determines the size of future
-        updates.
-      '';
-
-      type = lib.types.int;
     };
 
     # TODO The config is "<key> <value>" and we could make it harder
@@ -75,15 +77,43 @@ in
         [UAPI Version Format Specification](https://uapi-group.org/specifications/specs/version_format_specification).
       '';
       type = lib.types.str;
-      default = 0;
+      default = "0.0.0";
+    };
+
+    nixStore = {
+      maxSizeMiB = lib.mkOption {
+        description = ''
+          The maximum size of the Nix store partition.
+
+          This must be set manually, because it determines the size of future
+          updates.
+        '';
+
+        type = lib.types.int;
+      };
+    };
+
+    userData = {
+      minSizeMiB = lib.mkOption {
+        description = ''
+          The minimum size of the user data (root) partition.
+
+          Creating a tiny filesystem and inflating it later creates
+          suboptimal filesystem structures. Use at least 1 GiB.
+        '';
+        type = lib.types.int;
+        default = 1024;
+      };
+
+      maxSizeMiB = lib.mkOption {
+        description = "The maximum size of the user data (root) partition";
+        type = lib.types.int;
+        default = 32 * 1024;
+      };
     };
 
     swap = {
       enable = lib.mkEnableOption "add an encrypted swap partition" // {
-        default = true;
-      };
-
-      enableCompression = lib.mkEnableOption "enable compression by default" // {
         default = true;
       };
 
@@ -112,55 +142,51 @@ in
         image.repart = {
           name = config.boot.uki.name;
 
-          # Not useful yet, but it will be for update packages.
-          # split = true;
-
+          # We use dm-verity to permanently bind the /nix/store
+          # partition to the kernel. The verity hash is included in
+          # the Linux kernel command line. We can never use the wrong
+          # /nix/store.
+          #
+          # With Secure Boot, this verity hash is signed and we thus
+          # have a complete chain of trust from the firmware to the
+          # /nix/store partition.
           verityStore.enable = true;
 
-          partitions = {
-            "00-esp" = {
-              contents = {
-                "/EFI/BOOT/BOOT${lib.toUpper efiArch}.EFI".source =
-                  "${config.systemd.package}/lib/systemd/boot/efi/systemd-boot${efiArch}.efi";
+          partitions =
+            let
+              includeUserData = cfg.bootDevice == null || cfg.inplaceBootableImage;
+              includeSwap = cfg.swap.enable && cfg.inplaceBootableImage;
+            in
+            {
+              "00-esp" = {
+                contents = {
+                  "/EFI/BOOT/BOOT${lib.toUpper efiArch}.EFI".source =
+                    "${config.systemd.package}/lib/systemd/boot/efi/systemd-boot${efiArch}.efi";
 
-                # The UKI is added by the repart-verity-store module.
+                  # The UKI is added by the repart-verity-store module.
 
-                # systemd-boot configuration
-                "/loader/loader.conf".source = pkgs.writeText "$out" cfg.loaderConf;
+                  # systemd-boot configuration
+                  "/loader/loader.conf".source = pkgs.writeText "$out" cfg.loaderConf;
+                };
+                repartConfig = {
+                  Type = "esp";
+                  Format = "vfat";
+                  SizeMinBytes = "${toString cfg.espSizeMiB}M";
+                  SizeMaxBytes = "${toString cfg.espSizeMiB}M";
+                  SplitName = "-";
+                };
               };
-              repartConfig = {
-                Type = "esp";
-                Format = "vfat";
-                SizeMinBytes = "${toString cfg.espSizeMiB}M";
-                SizeMaxBytes = "${toString cfg.espSizeMiB}M";
-                SplitName = "-";
-              };
-            };
 
-            "10-store-verity" = {
-              # The verity partition is configured by the
-              # repart-verity-store module.
+              "10-store-verity" = {
+                # The verity partition is configured by the
+                # repart-verity-store module.
 
-              repartConfig =
-                let
-                  # Repart should be smart enough to figure out the
-                  # correct size by itself, but it doesn't work if we
-                  # specify an image size and the verity partition ends
-                  # up gigantic.
-                  #
-                  # So instead do a back-of-the-envelope calculation.
-                  sizeMiB =
-                    1 # percent
-                    * (ceil cfg.maxStoreSizeMiB 100);
-                in
-                {
+                repartConfig = {
                   Label = "store_verity_${config.system.image.version}";
                   VerityMatchKey = "store_${config.system.image.version}";
+                  ReadOnly = "yes";
                   SplitName = "verity";
-                  Minimize = "off";
-
-                  SizeMinBytes = "${toString sizeMiB}M";
-                  SizeMaxBytes = "${toString sizeMiB}M";
+                  Minimize = "best";
 
                   # Shrinks the verity partition to ~0.8% of the data
                   # instead of ~7% with a small cost in performance.
@@ -170,81 +196,54 @@ in
                   # Stay at minimum size in the image.
                   Weight = 0;
                 };
-            };
+              };
 
-            "20-store" = {
-              # Most of the root partition is configured by the
-              # repart-verity-store module.
-              repartConfig = {
-                Label = "store_${config.system.image.version}";
-                VerityMatchKey = "store_${config.system.image.version}";
-                ReadOnly = "yes";
-                SplitName = "store";
-                Minimize = "off";
+              "20-store" = {
+                # Most of the root partition is configured by the
+                # repart-verity-store module.
+                repartConfig = {
+                  Label = "store_${config.system.image.version}";
 
-                # TODO The 26.05 kernel only enables zip compression
-                # for erofs. But repart it needs the zip tool in PATH.
-                # Compression = "zip";
+                  Format = "squashfs";
+                  Compression = "zstd";
 
-                SizeMinBytes = "${toString cfg.maxStoreSizeMiB}M";
-                SizeMaxBytes = "${toString cfg.maxStoreSizeMiB}M";
+                  VerityMatchKey = "store_${config.system.image.version}";
+                  ReadOnly = "yes";
+                  SplitName = "store";
+                  Minimize = "best";
 
-                # Stay at minimum size in the image.
+                  SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+
+                  # Stay at minimum size in the image.
+                  Weight = 0;
+                };
+              };
+            }
+            // lib.optionalAttrs includeSwap {
+              "30-swap".repartConfig = config.systemd.repart.partitions."30-swap";
+            }
+            // lib.optionalAttrs includeUserData {
+              "40-user-data".repartConfig = config.systemd.repart.partitions."40-user-data" // {
+                SplitName = "-";
                 Weight = 0;
               };
             };
-
-            # TODO Only add a root partition if we don't know the target device.
-            # TODO Fix the repart module to support Format = "empty"
-            "40-root".repartConfig = {
-              Type = "root";
-              Format = "ext4";
-
-              # Creating a tiny ext4 and inflating it later creates
-              # suboptimal filesystem structures. Go a bit larger to
-              # avoid this.
-              #
-              # We could create a 64MB ext4 image here, but this will
-              # create a small journal that is a potential performance
-              # bottleneck. The journal size is also not adjusted when
-              # the file system is grown, but needs to be manually
-              # changed with tune2fs.
-              SizeMinBytes = "1G";
-              SizeMaxBytes = "1G";
-
-              SplitName = "root";
-              Label = "root";
-            }
-            // lib.optionalAttrs cfg.inplaceBootableImage {
-              PaddingMinBytes =
-                let
-                  swapSizeMiB = if cfg.swap.enable then cfg.swap.sizeMiB else 0;
-                  rootSizeMiB = 8192 - 1024;
-                  slackMiB = 64;
-                in
-                "${toString (swapSizeMiB + rootSizeMiB + slackMiB)}M";
-            };
-          };
         };
 
         boot.initrd.systemd.repart = {
           enable = true;
-
-          # The root partition only be dynamically created, because we
-          # would need to know the device name.
-          #device = "/dev/sda";
+          device = cfg.bootDevice;
         };
 
         # Resize /root to a better size.
         systemd.repart.partitions = {
-          "40-root" = {
+          "40-user-data" = {
             Type = "root";
             Format = "ext4";
 
-            SizeMinBytes = "1G";
-            SizeMaxBytes = "8G";
+            SizeMinBytes = "${toString cfg.userData.minSizeMiB}M";
+            SizeMaxBytes = "${toString cfg.userData.maxSizeMiB}M";
 
-            SplitName = "root";
             Label = "root";
           };
         };
@@ -265,7 +264,7 @@ in
         fileSystems = {
           "/" =
             let
-              partConf = config.systemd.repart.partitions."40-root";
+              partConf = config.systemd.repart.partitions."40-user-data";
             in
             {
               device = "/dev/disk/by-label/${partConf.Label}";
@@ -299,13 +298,6 @@ in
       }
 
       (lib.mkIf cfg.swap.enable {
-        zramSwap = lib.mkIf cfg.swap.enableCompression {
-          enable = lib.mkDefault true;
-          algorithm = lib.mkIf (lib.versionOlder "5.7" config.boot.kernelPackages.kernel.version) (
-            lib.mkDefault "zstd"
-          );
-        };
-
         swapDevices = [
           {
             device = "/dev/disk/by-designator/swap";

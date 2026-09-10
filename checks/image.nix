@@ -1,63 +1,78 @@
-{ testers, nixosModules }:
+{ pkgs, nixosModules }:
 
 let
-  systemVersion = "1.0.0";
+  mkImageTest =
+    args:
+    pkgs.callPackage ./image-base.nix (
+      {
+        inherit nixosModules;
+      }
+      // args
+    );
 
-  # Disable the VM boot shortcuts, because they interfere with booting the image.
-  testCompatibility = { lib, ... }: {
-    virtualisation.directBoot.enable = false;
-    virtualisation.mountHostNixStore = false;
-    virtualisation.useEFIBoot = true;
-    virtualisation.fileSystems = lib.mkForce { };
-  };
+  # Simulate dd'ing the image to a larger block device.
+  growImage = ''
+    subprocess.run([
+      qemu_img_bin,
+      "resize",
+      "-f",
+      "qcow2",
+      tmp_disk_image.name,
+      "+32G"
+    ])
+  '';
 in
-testers.nixosTest {
-  name = "Image module test";
+{
+  imageDefault = mkImageTest {
+    name = "Image Test (defaults)";
 
-  nodes.machine =
-    {
-      ...
-    }:
-    {
-      imports = [
-        testCompatibility
-        nixosModules.image
-      ];
+    testScript = ''
+      # Header plus one swap entry
+      print(machine.execute('cat /proc/swaps'))
+      machine.succeed('[ "$(wc -l < /proc/swaps)" -eq 2 ]')
+    '';
+  };
 
-      cyberus-linux.image = {
-        enable = true;
-        version = systemVersion;
+  imageWithoutSwap = mkImageTest {
+    name = "Image Test (disabled swap)";
 
-        # Make this a bit larger so we don't make this test flaky.
-        maxStoreSizeMiB = 4096;
-      };
+    additionalConfig = {
+      cyberus-linux.image.swap.enable = false;
+    };
+    testScript = ''
+      # Header without swap entries
+      machine.succeed('[ "$(wc -l < /proc/swaps)" -eq 1 ]')
+    '';
+  };
+
+  imageMinimal = mkImageTest {
+    name = "Image Test (minimized)";
+
+    additionalConfig = {
+      cyberus-linux.image.inplaceBootableImage = false;
     };
 
-  testScript =
-    { nodes, ... }:
-    ''
-      import os
-      import subprocess
-      import tempfile
+    additionalImagePrep = growImage;
 
-      tmp_disk_image = tempfile.NamedTemporaryFile()
-
-      subprocess.run([
-        "${nodes.machine.virtualisation.qemu.package}/bin/qemu-img",
-        "create",
-        "-f",
-        "qcow2",
-        "-b",
-        "${nodes.machine.system.build.image}/${nodes.machine.image.filePath}",
-        "-F",
-        "raw",
-        tmp_disk_image.name,
-      ])
-
-      os.environ['NIX_DISK_IMAGE'] = tmp_disk_image.name
-
-      with subtest("/etc/os-release contains the right version"):
-        os_release = machine.succeed("cat /etc/os-release")
-        t.assertIn('IMAGE_VERSION="${systemVersion}"', os_release)
+    testScript = ''
+      # We manage to create a swap partition.
+      machine.succeed('[ "$(wc -l < /proc/swaps)" -eq 2 ]')
     '';
+  };
+
+  imageMinimalBootDev = mkImageTest {
+    name = "Image Test (minimized, rootdev known)";
+
+    additionalConfig = {
+      cyberus-linux.image.inplaceBootableImage = false;
+      cyberus-linux.image.bootDevice = "/dev/vda";
+    };
+
+    additionalImagePrep = growImage;
+
+    testScript = ''
+      # We manage to create a swap partition.
+      machine.succeed('[ "$(wc -l < /proc/swaps)" -eq 2 ]')
+    '';
+  };
 }
