@@ -4,6 +4,7 @@
 # module for 26.05. 26.11 fixes the impurity of including the image/repart module.
 {
   config,
+  options,
   lib,
   pkgs,
   modulesPath,
@@ -96,9 +97,10 @@ in
 
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
-      # (lib.mkIf (lib.versionAtLeast lib.version "26.11") {
-      #   image.repart.enable = true;
-      # })
+      # mkIf cannot be used to hide options that do not exist.
+      (lib.optionalAttrs (options.image.repart ? enable) {
+        image.repart.enable = true;
+      })
 
       {
         system.image.version = cfg.version;
