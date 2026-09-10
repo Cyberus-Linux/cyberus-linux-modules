@@ -33,10 +33,11 @@ status symbols:
 - 🚧 - Planned/WIP
 - ❌ - Not Planned
 
-| Module                                                                       | Status     | Unstable | 26.05 | 24.05 | Description                                     |
-|------------------------------------------------------------------------------|------------|----------|-------|-------|-------------------------------------------------|
-| [`profiles`](https://docs.cyberus-linux.com/modules/cyberus-linux-profiles/) | **Stable** | ✅       | 🚧    | ✅    | Different opinionated settings for Cyberus Linux |
-| [`vms`](https://docs.cyberus-linux.com/modules/cyberus-linux-vms/)           | **Beta**   | ✅       | 🚧    | ❌    | Declarative way to run generic VMs               |
+| Module                                                                       | Status     | Unstable | 26.05 | Description                                      |
+|------------------------------------------------------------------------------|------------|----------|-------|--------------------------------------------------|
+| [`image`](https://docs.cyberus-linux.com/modules/cyberus-linux-image/)    | **Beta**   | ✅       | ✅    | Immutable image-based system                      |
+| [`profiles`](https://docs.cyberus-linux.com/modules/cyberus-linux-profiles/) | **Stable** | ✅       | ✅    | Different opinionated settings for Cyberus Linux |
+| [`vms`](https://docs.cyberus-linux.com/modules/cyberus-linux-vms/)           | **Beta**   | ✅       | 🚧    | Declarative way to run generic VMs               |
 
 ## Hardware Support
 
