@@ -58,9 +58,9 @@
     "nixpkgs": {
       "locked": {
         "lastModified": 315532800,
-        "narHash": "sha256-4/SmRsDCVZx5BILj4Dyf5i66Lni4hdqRRSFCldCy1Ng=",
+        "narHash": "sha256-mXy2w8/+TSK0dFT3NN9KB+hqZFNjPu80E92wXQr5LE8=",
         "type": "tarball",
-        "url": "https://channels.ctrl-os.com/permanent/ctrlos-2d27c9c1abf2fae5c6ddf7051f1c15858c8b5eb7.tar.xz"
+        "url": "https://channels.ctrl-os.com/permanent/ctrlos-eb0d4e34fefabd6a371231a12ab50fa9ef40ed91.tar.xz"
       },
       "original": {
         "type": "tarball",
