@@ -210,8 +210,8 @@ in
                   VerityMatchKey = "store_${config.system.image.version}";
                   ReadOnly = "yes";
                   SplitName = "store";
-                  Minimize = "best";
 
+                  SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
                   SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
 
                   # Stay at minimum size in the image.
