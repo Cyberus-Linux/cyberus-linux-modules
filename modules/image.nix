@@ -151,8 +151,8 @@ in
           for each new version it expects three files:
 
           - A UKI: `kernel_<version>.efi`.
-          - A Nix store image: `store_<version>`
-          - A dm-verity partition of the Nix store: `store_verity_<version>`
+          - A Nix store image: `store_data_<uuid>_<version>`
+          - A dm-verity partition of the Nix store: `store_verity_<uuid>_<version>`
         '';
 
         type = lib.types.path;
@@ -181,15 +181,6 @@ in
         # We replace the boot loader.
         boot.loader.grub.enable = false;
         boot.loader.systemd-boot.enable = false;
-
-        # TODO These should be auto-discovered.
-        #
-        # For this we need to encode the partion UUID in the file name using @.
-        # https://www.freedesktop.org/software/systemd/man/latest/sysupdate.d.html#
-        boot.kernelParams = [
-          "systemd.verity_usr_data=/dev/disk/by-partlabel/store_${config.system.image.version}"
-          "systemd.verity_usr_hash=/dev/disk/by-partlabel/store_verity_${config.system.image.version}"
-        ];
 
         image.repart = {
           name = "image";
@@ -241,9 +232,9 @@ in
                 repartConfig = {
                   Type = "usr-verity";
                   Label = "store_verity_${config.system.image.version}";
-                  VerityMatchKey = "store_${config.system.image.version}";
+                  VerityMatchKey = "store_data_${config.system.image.version}";
                   ReadOnly = "yes";
-                  SplitName = "verity";
+                  SplitName = "store_verity_%U";
                   Minimize = "best";
 
                   # Shrinks the verity partition to ~0.8% of the data
@@ -264,14 +255,14 @@ in
                 # repart-verity-store module.
                 repartConfig = {
                   Type = "usr";
-                  Label = "store_${config.system.image.version}";
+                  Label = "store_data_${config.system.image.version}";
 
                   Format = "squashfs";
                   Compression = "zstd";
 
-                  VerityMatchKey = "store_${config.system.image.version}";
+                  VerityMatchKey = "store_data_${config.system.image.version}";
                   ReadOnly = "yes";
-                  SplitName = "store";
+                  SplitName = "store_data_%U";
 
                   SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
                   SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
@@ -419,8 +410,20 @@ in
 
               mkdir -p $out
               install -m444 ${config.system.build.uki}/${config.system.boot.loader.ukiFile} $out/kernel_$VERSION.efi
-              zstd -1 -v "$IMAGES_DIR"/"$IMAGE_PREFIX".store.raw -o $out/store_$VERSION.zstd
-              zstd -1 -v "$IMAGES_DIR"/"$IMAGE_PREFIX".verity.raw -o $out/store_verity_$VERSION.zstd
+
+              STORE_IMG=$(ls "$IMAGES_DIR/$IMAGE_PREFIX".store_data_*.raw)
+              STORE_VERITY_IMG=$(ls "$IMAGES_DIR/$IMAGE_PREFIX".store_verity_*.raw)
+
+              # We need the partition UUIDs in the file names, so systemd-sysupdate can
+              # correctly restore them. This is important to match store and verity partitions
+              # automatically when mounting, as the partition UUIDs are linked to the usrhash=
+              # kernel parameter.
+
+              zstd -1 -v "$STORE_IMG" \
+                -o $out/$(echo "$STORE_IMG" | sed -E "s/.*image_(.*)\\.store_data_([0-9a-f]+).raw/store_data_\2_\1/").zstd
+
+              zstd -1 -v "$STORE_VERITY_IMG" \
+                -o $out/$(echo "$STORE_VERITY_IMG" | sed -E "s/.*image_(.*)\\.store_verity_([0-9a-f]+).raw/store_verity_\2_\1/").zstd
             '';
 
         systemd.sysupdate = {
@@ -461,9 +464,9 @@ in
             "20-store" = {
               Source = {
                 MatchPattern = [
-                  "store_@v.zstd"
-                  "store_@v.xz"
-                  "store_@v"
+                  "store_data_@u_@v.zstd"
+                  "store_data_@u_@v.xz"
+                  "store_data_@u_@v"
                 ];
                 Path = cfg.updates.updateDirectory;
                 Type = "regular-file";
@@ -473,7 +476,7 @@ in
                 InstancesMax = cfg.updates.slots;
 
                 Path = "auto";
-                MatchPattern = "store_@v";
+                MatchPattern = "store_data_@v";
                 MatchPartitionType = "usr";
 
                 Type = "partition";
@@ -489,9 +492,9 @@ in
             "30-store-verity" = {
               Source = {
                 MatchPattern = [
-                  "store_verity_@v.zstd"
-                  "store_verity_@v.xz"
-                  "store_verity_@v"
+                  "store_verity_@u_@v.zstd"
+                  "store_verity_@u_@v.xz"
+                  "store_verity_@u_@v"
                 ];
                 Path = cfg.updates.updateDirectory;
                 Type = "regular-file";
