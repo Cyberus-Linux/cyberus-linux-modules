@@ -22,7 +22,7 @@ let
     ])
   '';
 in
-{
+rec {
   imageDefault = mkImageTest {
     name = "Image Test (defaults)";
 
@@ -75,4 +75,48 @@ in
       machine.succeed('[ "$(wc -l < /proc/swaps)" -eq 2 ]')
     '';
   };
+
+  imageUpdates =
+    let
+      # Generate an update bundle. It would be nice to use extendModules
+      # somehow...
+      updateBundle =
+        (mkImageTest {
+          name = "New Version";
+
+          additionalConfig = {
+            cyberus-linux.image.version = "1.0.1";
+          };
+        }).nodes.machine.system.build.imageUpdateBundle;
+    in
+    mkImageTest {
+      name = "Image Update Test";
+
+      # See the TODO below.
+      additionalConfig = { config, pkgs, ... }: {
+        environment.etc.updates = {
+          source = updateBundle;
+        };
+      };
+
+      testScript = ''
+        machine.succeed("mkdir -p /var/updates")
+
+        # TODO The shared directory is not mounted, so we cannot use copy_from_host.
+        machine.succeed("cp -v /etc/updates/* /var/updates/")
+
+        current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
+        assert "1.0.0" in current_version
+
+        updates = machine.succeed("updatectl check")
+        assert "1.0.0 → 1.0.1" in updates
+
+        machine.succeed("updatectl update")
+        machine.reboot()
+
+        current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
+        assert "1.0.1" in current_version
+
+      '';
+    };
 }

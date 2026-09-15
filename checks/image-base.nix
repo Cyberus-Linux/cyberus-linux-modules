@@ -23,6 +23,8 @@ testers.nixosTest {
 
   nodes.machine =
     {
+      lib,
+      modulesPath,
       ...
     }:
     {
@@ -30,12 +32,14 @@ testers.nixosTest {
         testCompatibility
         nixosModules.image
 
+        "${modulesPath}/profiles/image-based-appliance.nix"
         additionalConfig
+
       ];
 
       cyberus-linux.image = {
         enable = true;
-        version = systemVersion;
+        version = lib.mkDefault systemVersion;
 
         # Make this a bit larger so we don't make this test flaky.
         nixStore.maxSizeMiB = 4096;

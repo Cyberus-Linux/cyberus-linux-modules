@@ -183,6 +183,9 @@ in
         boot.loader.systemd-boot.enable = false;
 
         # TODO These should be auto-discovered.
+        #
+        # For this we need to encode the partion UUID in the file name using @.
+        # https://www.freedesktop.org/software/systemd/man/latest/sysupdate.d.html#
         boot.kernelParams = [
           "systemd.verity_usr_data=/dev/disk/by-partlabel/store_${config.system.image.version}"
           "systemd.verity_usr_hash=/dev/disk/by-partlabel/store_verity_${config.system.image.version}"
@@ -358,7 +361,8 @@ in
               partConf = config.image.repart.partitions."00-esp".repartConfig;
             in
             {
-              device = "/dev/disk/by-designator/esp";
+              # TODO Why does /dev/disk/by-designator/esp not work after an update?
+              device = "/dev/disk/by-label/ESP";
               fsType = partConf.Format;
             };
 
