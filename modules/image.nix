@@ -14,6 +14,10 @@ let
   cfg = config.cyberus-linux.image;
 
   inherit (pkgs.stdenv.hostPlatform) efiArch;
+
+  # We need roughly 0.8% for the verity partition. We use 1% to avoid
+  # any unfortunate rounding effects.
+  storeVeritySizeMiB = (cfg.userData.maxSizeMiB + 99) / 100;
 in
 {
   imports = [
@@ -107,7 +111,7 @@ in
 
       maxSizeMiB = lib.mkOption {
         description = "The maximum size of the user data (root) partition";
-        type = lib.types.int;
+        type = lib.types.ints.unsigned;
         default = 32 * 1024;
       };
     };
@@ -140,7 +144,7 @@ in
         boot.loader.systemd-boot.enable = false;
 
         image.repart = {
-          name = config.boot.uki.name;
+          name = "image";
 
           # We use dm-verity to permanently bind the /nix/store
           # partition to the kernel. The verity hash is included in
@@ -192,6 +196,9 @@ in
                   # instead of ~7% with a small cost in performance.
                   VerityDataBlockSizeBytes = 4096;
                   VerityHashBlockSizeBytes = 4096;
+
+                  SizeMinBytes = "${toString storeVeritySizeMiB}M";
+                  SizeMaxBytes = "${toString storeVeritySizeMiB}M";
 
                   # Stay at minimum size in the image.
                   Weight = 0;
