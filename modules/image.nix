@@ -142,6 +142,22 @@ in
         type = lib.types.ints.unsigned;
         default = 2;
       };
+
+      updateDirectory = lib.mkOption {
+        description = ''
+          A local directory from which updates will be applied.
+
+          These updates have to be in a format that systemd-update understands. For now this means
+          for each new version it expects three files:
+
+          - A UKI: `kernel_<version>.efi`.
+          - A Nix store image: `store_<version>`
+          - A dm-verity partition of the Nix store: `store_verity_<version>`
+        '';
+
+        type = lib.types.path;
+        default = "/var/updates";
+      };
     };
   };
 
@@ -166,8 +182,15 @@ in
         boot.loader.grub.enable = false;
         boot.loader.systemd-boot.enable = false;
 
+        # TODO These should be auto-discovered.
+        boot.kernelParams = [
+          "systemd.verity_usr_data=/dev/disk/by-partlabel/store_${config.system.image.version}"
+          "systemd.verity_usr_hash=/dev/disk/by-partlabel/store_verity_${config.system.image.version}"
+        ];
+
         image.repart = {
           name = "image";
+          split = true;
 
           # We use dm-verity to permanently bind the /nix/store
           # partition to the kernel. The verity hash is included in
@@ -177,7 +200,10 @@ in
           # With Secure Boot, this verity hash is signed and we thus
           # have a complete chain of trust from the firmware to the
           # /nix/store partition.
-          verityStore.enable = true;
+          verityStore = {
+            enable = true;
+            ukiPath = "/EFI/Linux/kernel_${config.system.image.version}.efi";
+          };
 
           partitions =
             let
@@ -210,6 +236,7 @@ in
                 # repart-verity-store module.
 
                 repartConfig = {
+                  Type = "usr-verity";
                   Label = "store_verity_${config.system.image.version}";
                   VerityMatchKey = "store_${config.system.image.version}";
                   ReadOnly = "yes";
@@ -233,6 +260,7 @@ in
                 # Most of the root partition is configured by the
                 # repart-verity-store module.
                 repartConfig = {
+                  Type = "usr";
                   Label = "store_${config.system.image.version}";
 
                   Format = "squashfs";
@@ -286,14 +314,14 @@ in
         // builtins.listToAttrs (
           lib.concatMap (updateSlot: [
             (lib.nameValuePair "25-${toString updateSlot}-store-verity-update" {
-              Type = "linux-generic";
+              Type = "usr-verity";
               Format = "empty";
               SizeMinBytes = "${toString storeVeritySizeMiB}M";
               SizeMaxBytes = "${toString storeVeritySizeMiB}M";
               SplitName = "-";
             })
             (lib.nameValuePair "26-${toString updateSlot}-store-update" {
-              Type = "linux-generic";
+              Type = "usr";
               Format = "empty";
               SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
               SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
@@ -364,6 +392,123 @@ in
             Type = "swap";
             SizeMinBytes = "${toString cfg.swap.sizeMiB}M";
             SizeMaxBytes = "${toString cfg.swap.sizeMiB}M";
+            SplitName = "-";
+          };
+        };
+      })
+
+      (lib.mkIf (cfg.updates.slots > 1) {
+
+        system.build.imageUpdateBundle =
+          pkgs.runCommand "update-bundle"
+            {
+              nativeBuildInputs = [ pkgs.zstd ];
+            }
+            ''
+              IMAGES_DIR="${config.system.build.image}"
+              VERSION="${config.image.repart.version}"
+              IMAGE_PREFIX="${config.image.repart.name}_$VERSION"
+
+              # Compress the store and verity image, because they contain zero padding.
+              # We don't need a high compression level, because the populated part is
+              # already compressed or incompressible.
+
+              mkdir -p $out
+              install -m444 ${config.system.build.uki}/${config.system.boot.loader.ukiFile} $out/kernel_$VERSION.efi
+              zstd -1 -v "$IMAGES_DIR"/"$IMAGE_PREFIX".store.raw -o $out/store_$VERSION.zstd
+              zstd -1 -v "$IMAGES_DIR"/"$IMAGE_PREFIX".verity.raw -o $out/store_verity_$VERSION.zstd
+            '';
+
+        systemd.sysupdate = {
+          enable = true;
+
+          transfers = {
+            # TODO Allow updating the boot loader.
+
+            "10-uki" = {
+              Source = {
+                MatchPattern = [
+                  "kernel_@v.efi.zstd"
+                  "kernel_@v.efi.xz"
+                  "kernel_@v.efi"
+                ];
+
+                Path = cfg.updates.updateDirectory;
+                Type = "regular-file";
+              };
+              Target = {
+                InstancesMax = cfg.updates.slots;
+                MatchPattern = [
+                  "kernel_@v.efi"
+                ];
+
+                Mode = "0444";
+                Path = "/EFI/Linux";
+                PathRelativeTo = "boot";
+
+                Type = "regular-file";
+              };
+              Transfer = {
+                # Don't overwrite the current version.
+                ProtectVersion = "%A";
+              };
+            };
+
+            "20-store" = {
+              Source = {
+                MatchPattern = [
+                  "store_@v.zstd"
+                  "store_@v.xz"
+                  "store_@v"
+                ];
+                Path = cfg.updates.updateDirectory;
+                Type = "regular-file";
+              };
+
+              Target = {
+                InstancesMax = cfg.updates.slots;
+
+                Path = "auto";
+                MatchPattern = "store_@v";
+                MatchPartitionType = "usr";
+
+                Type = "partition";
+                ReadOnly = "yes";
+              };
+
+              Transfer = {
+                # Don't overwrite the current version.
+                ProtectVersion = "%A";
+              };
+            };
+
+            "30-store-verity" = {
+              Source = {
+                MatchPattern = [
+                  "store_verity_@v.zstd"
+                  "store_verity_@v.xz"
+                  "store_verity_@v"
+                ];
+                Path = cfg.updates.updateDirectory;
+                Type = "regular-file";
+              };
+
+              Target = {
+                InstancesMax = cfg.updates.slots;
+
+                Path = "auto";
+                MatchPattern = "store_verity_@v";
+                MatchPartitionType = "usr-verity";
+
+                Type = "partition";
+                ReadOnly = "yes";
+              };
+
+              Transfer = {
+                # Don't overwrite the current version.
+                ProtectVersion = "%A";
+              };
+            };
           };
         };
       })
