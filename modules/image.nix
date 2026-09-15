@@ -127,6 +127,22 @@ in
         default = 1024;
       };
     };
+
+    updates = {
+      slots = lib.mkOption {
+        description = ''
+          The number of slots for updates.
+
+          Setting this to 2 creates the classical A/B update system, but more
+          slots are possible. Setting this to 1 disables updates.
+
+          Each slot consumes `cyberus-linux.image.nixStore.maxSizeMiB` MiB of
+          storage plus around 1% for integrity checking information.
+        '';
+        type = lib.types.ints.unsigned;
+        default = 2;
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -137,6 +153,13 @@ in
       })
 
       {
+        assertions = [
+          {
+            assertion = cfg.updates.slots > 0;
+            message = "The number of update slots cannot be zero. If you want to disable updates, set them to 1.";
+          }
+        ];
+
         system.image.version = cfg.version;
 
         # We replace the boot loader.
@@ -160,6 +183,7 @@ in
             let
               includeUserData = cfg.bootDevice == null || cfg.inplaceBootableImage;
               includeSwap = cfg.swap.enable && cfg.inplaceBootableImage;
+              includeUpdateSlots = cfg.updates.slots > 1 && cfg.inplaceBootableImage;
             in
             {
               "00-esp" = {
@@ -226,6 +250,11 @@ in
                 };
               };
             }
+            // lib.optionalAttrs includeUpdateSlots (
+              builtins.mapAttrs (_name: value: { repartConfig = value; }) (
+                lib.filterAttrs (name: _value: lib.hasSuffix "-update" name) config.systemd.repart.partitions
+              )
+            )
             // lib.optionalAttrs includeSwap {
               "30-swap".repartConfig = config.systemd.repart.partitions."30-swap";
             }
@@ -253,7 +282,25 @@ in
 
             Label = "root";
           };
-        };
+        }
+        // builtins.listToAttrs (
+          lib.concatMap (updateSlot: [
+            (lib.nameValuePair "25-${toString updateSlot}-store-verity-update" {
+              Type = "linux-generic";
+              Format = "empty";
+              SizeMinBytes = "${toString storeVeritySizeMiB}M";
+              SizeMaxBytes = "${toString storeVeritySizeMiB}M";
+              SplitName = "-";
+            })
+            (lib.nameValuePair "26-${toString updateSlot}-store-update" {
+              Type = "linux-generic";
+              Format = "empty";
+              SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+              SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+              SplitName = "-";
+            })
+          ]) (lib.range 2 cfg.updates.slots)
+        );
 
         boot.initrd.systemd.services.systemd-repart = {
           path = [
