@@ -93,7 +93,7 @@ rec {
       name = "Image Update Test";
 
       # See the TODO below.
-      additionalConfig = { config, pkgs, ... }: {
+      additionalConfig = {
         environment.etc.updates = {
           source = updateBundle;
         };
@@ -106,7 +106,7 @@ rec {
         machine.succeed("cp -v /etc/updates/* /var/updates/")
 
         current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
-        assert "1.0.0" in current_version
+        t.assertIn("1.0.0", current_version)
 
         updates = machine.succeed("updatectl check")
         assert "1.0.0 → 1.0.1" in updates
@@ -115,8 +115,7 @@ rec {
         machine.reboot()
 
         current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
-        assert "1.0.1" in current_version
-
+        t.assertIn("1.0.1", current_version)
       '';
     };
 }

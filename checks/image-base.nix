@@ -75,9 +75,8 @@ testers.nixosTest {
 
       os.environ['NIX_DISK_IMAGE'] = tmp_disk_image.name
 
-      with subtest("/etc/os-release contains the right version"):
-        os_release = machine.succeed("cat /etc/os-release")
-        t.assertIn('IMAGE_VERSION="${systemVersion}"', os_release)
+      machine.start(allow_reboot=True)
+      machine.wait_for_unit("multi-user.target")
 
       ${testScript}
     '';
