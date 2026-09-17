@@ -27,7 +27,7 @@ in
   options.cyberus-linux.image = {
     enable = lib.mkEnableOption "image-based deployment";
 
-    inplaceBootableImage = lib.mkOption {
+    inplaceBootable = lib.mkOption {
       description = ''
         Size the image to fit partitions that are created on first boot.
 
@@ -201,9 +201,9 @@ in
 
           partitions =
             let
-              includeUserData = cfg.bootDevice == null || cfg.inplaceBootableImage;
-              includeSwap = cfg.swap.enable && cfg.inplaceBootableImage;
-              includeUpdateSlots = cfg.updates.slots > 1 && cfg.inplaceBootableImage;
+              includeUserData = cfg.bootDevice == null || cfg.inplaceBootable;
+              includeSwap = cfg.swap.enable && cfg.inplaceBootable;
+              includeUpdateSlots = cfg.updates.slots > 1 && cfg.inplaceBootable;
             in
             {
               "00-esp" = {

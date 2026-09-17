@@ -49,7 +49,7 @@ rec {
     name = "Image Test (minimized)";
 
     additionalConfig = {
-      cyberus-linux.image.inplaceBootableImage = false;
+      cyberus-linux.image.inplaceBootable = false;
     };
 
     additionalImagePrep = growImage;
@@ -64,7 +64,7 @@ rec {
     name = "Image Test (minimized, rootdev known)";
 
     additionalConfig = {
-      cyberus-linux.image.inplaceBootableImage = false;
+      cyberus-linux.image.inplaceBootable = false;
       cyberus-linux.image.bootDevice = "/dev/vda";
     };
 
