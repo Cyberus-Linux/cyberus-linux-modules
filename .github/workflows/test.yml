@@ -24,6 +24,12 @@ jobs:
       # This happens when systemd-repart builds images otherwise.
       - name: Disable AppArmor
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Scrounge-up some more space
+        uses: samueldr/more-space-action@latest
+        with:
+          enable-lvm-span: true
+          lvm-span-mountpoint: /nix
       - uses: actions/checkout@v5
       - uses: samueldr/lix-gha-installer-action@latest
         with:
