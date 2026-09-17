@@ -429,6 +429,8 @@ in
         systemd.sysupdate = {
           enable = true;
 
+          reboot.enable = lib.mkDefault true;
+
           transfers = {
             # TODO Allow updating the boot loader.
 
