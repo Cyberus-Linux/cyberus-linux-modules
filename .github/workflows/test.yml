@@ -27,9 +27,7 @@ jobs:
 
       - name: Scrounge-up some more space
         uses: samueldr/more-space-action@latest
-        with:
-          enable-lvm-span: true
-          lvm-span-mountpoint: /nix
+
       - uses: actions/checkout@v5
       - uses: samueldr/lix-gha-installer-action@latest
         with:
