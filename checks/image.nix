@@ -104,7 +104,7 @@ builtins.listToAttrs (
         };
 
       testScript = ''
-        machine.succeed("mkdir -p /var/updates")
+        machine.succeed("mkdir -p /var/updates && chmod 755 /var/updates")
 
         # Make the bundled image available.
         machine.succeed("rm -rf /var/updates")
