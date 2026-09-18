@@ -1,7 +1,4 @@
 # This is an opinionated module that configures image-based systems.
-#
-# TODO The impurity checks in checks/modules.nix are currently disabled for this
-# module for 26.05. 26.11 fixes the impurity of including the image/repart module.
 {
   config,
   options,
@@ -63,10 +60,13 @@ in
       default = 512;
     };
 
-    # TODO The config is "<key> <value>" and we could make it harder
-    # to mess this up by accepting an attrset.
     loaderConf = lib.mkOption {
-      description = "The systemd-boot loader.conf configuration file";
+      description = ''
+        The systemd-boot loader.conf configuration file.
+
+        See [the systemd-boot documentation](https://www.freedesktop.org/software/systemd/man/latest/loader.conf.html)
+        for the available options.
+      '';
       type = lib.types.str;
       default = ''
         timeout 5
@@ -352,10 +352,10 @@ in
               partConf = config.image.repart.partitions."00-esp".repartConfig;
             in
             {
-              # We should be able to mount the ESP without the label,
-              # but the by-designator links are not created early
-              # enough and we fail in the update test with: Timed out
-              # waiting for device /dev/disk/by-designator/esp.
+              # We should be able to mount the ESP without the label, but the
+              # by-designator links are not created early enough and we fail in
+              # the update test with: Timed out waiting for device
+              # /dev/disk/by-designator/esp.
               #
               # What's strange is that this only happens after an update.
               #
@@ -364,8 +364,7 @@ in
               fsType = partConf.Format;
             };
 
-          # We don't need a /usr mountpoint. Linux finds it via the verity
-          # hash.
+          # We don't need a /usr mountpoint. Linux finds it via the verity hash.
         };
 
         # Ensure other services that touch the disk don't interfer.
@@ -439,8 +438,6 @@ in
           reboot.enable = lib.mkDefault true;
 
           transfers = {
-            # TODO Allow updating the boot loader.
-
             "10-uki" = {
               Source = {
                 MatchPattern = [
