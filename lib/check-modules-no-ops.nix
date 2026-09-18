@@ -43,6 +43,10 @@
 
   # The modules being checked. Like `nixosModules` in Flakes.
   modules ? import ../modules,
+
+  # Ignore changes in attribute paths, per test.
+  # { moduleName =  [ [ "system" "build" ] [ "other" "option" "to" "ignore" ] ];
+  ignoreChangesIn ? { },
 }:
 
 let
@@ -106,55 +110,61 @@ let
   # priority, such as attribute sets and lists.
   # TIP: To further confirm no-op-ness, evaluate a "holistic" value, like the
   #      `system.build.toplevel` or other similar results.
-  simplifyOptions = walkOptions (
-    _path: option:
-    let
-      result = builtins.tryEval (
-        let
-          values = rec {
-            # Evaluating `default` may fail, and that's expected.
-            hasDefault = option ? default;
-            # Some definition locations that we can evaluate.
-            # Note that `defaultText` *very often* implies the option will not evaluate
-            # when the modules is not configured entirely. So skip those values...
-            definitionLocations' =
-              if option ? defaultText then "(skipped possibly un-evaluatable option...)" else option.files;
-            # Directly inherit values we can inherit.
-            inherit (option)
-              declarationPositions
-              highestPrio
-              options
-              ;
-
-            # The type *technically* can be changed, but is generally awkward to
-            # compare, so pick a few representative values out.
-            type = {
-              inherit (option.type)
-                _type
-                description
-                name
+  simplifyOptions =
+    { options, ignoreChangesIn }:
+    walkOptions (
+      path: option:
+      let
+        result = builtins.tryEval (
+          let
+            values = rec {
+              # Evaluating `default` may fail, and that's expected.
+              hasDefault = option ? default;
+              # Some definition locations that we can evaluate.
+              # Note that `defaultText` *very often* implies the option will not evaluate
+              # when the modules is not configured entirely. So skip those values...
+              definitionLocations' =
+                if option ? defaultText then "(skipped possibly un-evaluatable option...)" else option.files;
+              # Directly inherit values we can inherit.
+              inherit (option)
+                declarationPositions
+                highestPrio
+                options
                 ;
-            }
-            // (lib.optionalAttrs (option.type ? internal) { inherit (option) internal; });
 
-            # While untrue, this allows us to call `walkOptions` to walk this simplified tree.
-            _type = "option";
-          }
-          // (lib.optionalAttrs (option ? description) { inherit (option) description; })
-          // (lib.optionalAttrs (option ? defaultText) { inherit (option) defaultText; });
-        in
-        # Fail eagerly, or else laziness will make this fail outside the `tryEval`.
-        builtins.deepSeq (builtins.attrValues values) values
-      );
-    in
-    if result.success then
-      result.value
-    # We treat (catchable) errors as being a comparable value.
-    # Any error is equal to another error.
-    # There won't be uncatchable errors in a correct module.
-    else
-      "« error at ${option} »"
-  );
+              # The type *technically* can be changed, but is generally awkward to
+              # compare, so pick a few representative values out.
+              type = {
+                inherit (option.type)
+                  _type
+                  description
+                  name
+                  ;
+              }
+              // (lib.optionalAttrs (option.type ? internal) { inherit (option) internal; });
+
+              # While untrue, this allows us to call `walkOptions` to walk this simplified tree.
+              _type = "option";
+            }
+            // (lib.optionalAttrs (option ? description) { inherit (option) description; })
+            // (lib.optionalAttrs (option ? defaultText) { inherit (option) defaultText; });
+          in
+          # Fail eagerly, or else laziness will make this fail outside the `tryEval`.
+          builtins.deepSeq (builtins.attrValues values) values
+        );
+      in
+      if lib.elem path ignoreChangesIn then
+        { }
+      else if result.success then
+        result.value
+      # We treat (catchable) errors as being a comparable value.
+      # Any error is equal to another error.
+      # There won't be uncatchable errors in a correct module.
+      else
+        "« error at ${option} »"
+    ) options
+
+  ;
 
   # Compare NixOS module system `optionsA` and `optionsB`, returning the
   # options from `optionsB`, keeping only the options found in `optionsA`.
@@ -173,11 +183,17 @@ let
   # options with `optionsA` after `simplifyOptions optionsB`.
   # This result is what gets compared.
   prepareOptionsForComparison =
-    optionsA: optionsB:
+    ignoreChangesIn: optionsA: optionsB:
 
     rec {
-      a = simplifyOptions optionsA;
-      b = filterExistingOptionsFrom a (simplifyOptions optionsB);
+      a = simplifyOptions {
+        options = optionsA;
+        inherit ignoreChangesIn;
+      };
+      b = filterExistingOptionsFrom a (simplifyOptions {
+        options = optionsB;
+        inherit ignoreChangesIn;
+      });
     };
 
   compareEvals =
@@ -202,7 +218,11 @@ let
             )
             (
               let
-                inherit (prepareOptionsForComparison evalA.options evalB.options) a b;
+                ignored = ignoreChangesIn.${name} or [ ];
+                inherit (prepareOptionsForComparison ignored evalA.options evalB.options)
+                  a
+                  b
+                  ;
                 jsonA = builtins.toFile "evalA.json" (builtins.toJSON a);
                 jsonB = builtins.toFile "evalB.json" (builtins.toJSON b);
               in
