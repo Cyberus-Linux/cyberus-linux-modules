@@ -111,7 +111,19 @@ rec {
         updates = machine.succeed("updatectl check")
         t.assertIn("1.0.0 → 1.0.1", updates)
 
+        # Ensure the update process has completed running.
+        # NOTE: This command likely may not fail on update failures.
         machine.succeed("updatectl update")
+
+        # For some failure modes, the `updatectl update` command will exit(0)
+        # Additionally, it will print confusing output such as:
+        #     host@1.0.1: ✗ No space left on device
+        #     host@1.0.1: ✓ Already up-to-date
+        # So we need to check the `check` subcommand instead.
+        # This saves a needless reboot in case of failures.
+        output = machine.succeed("updatectl check 2>&1")
+        t.assertIn("No updates available.", output)
+
         machine.reboot()
 
         current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
