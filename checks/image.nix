@@ -109,7 +109,7 @@ rec {
         t.assertIn("1.0.0", current_version)
 
         updates = machine.succeed("updatectl check")
-        assert "1.0.0 → 1.0.1" in updates
+        t.assertIn("1.0.0 → 1.0.1", updates)
 
         machine.succeed("updatectl update")
         machine.reboot()
