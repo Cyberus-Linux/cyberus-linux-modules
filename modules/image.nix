@@ -197,6 +197,11 @@ in
           verityStore = {
             enable = true;
             ukiPath = "/EFI/Linux/kernel_${config.system.image.version}.efi";
+
+            partitionIds = {
+              store-verity = "25-1-store-verity-update";
+              store = "26-1-store-update";
+            };
           };
 
           partitions =
@@ -225,7 +230,7 @@ in
                 };
               };
 
-              "10-store-verity" = {
+              "${config.image.repart.verityStore.partitionIds.store-verity}" = {
                 # The verity partition is configured by the
                 # repart-verity-store module.
 
@@ -250,7 +255,7 @@ in
                 };
               };
 
-              "20-store" = {
+              "${config.image.repart.verityStore.partitionIds.store}" = {
                 # Most of the root partition is configured by the
                 # repart-verity-store module.
                 repartConfig = {
@@ -321,7 +326,7 @@ in
               SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
               SplitName = "-";
             })
-          ]) (lib.range 2 cfg.updates.slots)
+          ]) (lib.range (if cfg.inplaceBootable then 2 else 1) cfg.updates.slots)
         );
 
         boot.initrd.systemd.services.systemd-repart = {
@@ -467,7 +472,7 @@ in
               };
             };
 
-            "20-store" = {
+            "26-1-store-update" = {
               Source = {
                 MatchPattern = [
                   "store_data_@u_@v.zstd"
@@ -495,7 +500,7 @@ in
               };
             };
 
-            "30-store-verity" = {
+            "25-1-store-verity-update" = {
               Source = {
                 MatchPattern = [
                   "store_verity_@u_@v.zstd"
