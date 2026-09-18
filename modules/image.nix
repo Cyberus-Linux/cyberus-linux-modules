@@ -352,7 +352,14 @@ in
               partConf = config.image.repart.partitions."00-esp".repartConfig;
             in
             {
-              # TODO Why does /dev/disk/by-designator/esp not work after an update?
+              # We should be able to mount the ESP without the label,
+              # but the by-designator links are not created early
+              # enough and we fail in the update test with: Timed out
+              # waiting for device /dev/disk/by-designator/esp.
+              #
+              # What's strange is that this only happens after an update.
+              #
+              # device = "/dev/disk/by-designator/esp";
               device = "/dev/disk/by-label/ESP";
               fsType = partConf.Format;
             };
