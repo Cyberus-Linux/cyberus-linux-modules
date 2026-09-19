@@ -1,7 +1,6 @@
 { pkgs, nixosModules }:
 
 let
-  inherit (pkgs) lib;
   mkImageTest' = pkgs.callPackage ./image-base.nix ({ inherit nixosModules; });
 
   mkImageTest =
@@ -21,25 +20,9 @@ let
             additionalConfig = {
               imports = [ additionalConfig ];
               config = {
-                cyberus-linux.image.inplaceBootable = lib.mkForce false;
               };
             };
             additionalImagePrep = growImage;
-          }
-        );
-      }
-      {
-        name = "${attrName}Full";
-        value = mkImageTest' (
-          args
-          // {
-            name = "${name} (Full)";
-            additionalConfig = {
-              imports = [ additionalConfig ];
-              config = {
-                cyberus-linux.image.inplaceBootable = lib.mkForce true;
-              };
-            };
           }
         );
       }
