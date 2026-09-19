@@ -24,20 +24,6 @@ in
   options.cyberus-linux.image = {
     enable = lib.mkEnableOption "image-based deployment";
 
-    inplaceBootable = lib.mkOption {
-      description = ''
-        Size the image to fit partitions that are created on first boot.
-
-        This is useful to create a image that can boot as-is in a VM. Images
-        that are intended to be written to a disk image or USB thumb drive do
-        not need this option to be enabled.
-
-        Disabling this option creates a smaller image.
-      '';
-      type = lib.types.bool;
-      default = true;
-    };
-
     bootDevice = lib.mkOption {
       description = ''
         The boot device name (if known).
@@ -204,93 +190,80 @@ in
             };
           };
 
-          partitions =
-            let
-              includeUserData = cfg.bootDevice == null || cfg.inplaceBootable;
-              includeSwap = cfg.swap.enable && cfg.inplaceBootable;
-              includeUpdateSlots = cfg.updates.slots > 1 && cfg.inplaceBootable;
-            in
-            {
-              "00-esp" = {
-                contents = {
-                  "/EFI/BOOT/BOOT${lib.toUpper efiArch}.EFI".source =
-                    "${config.systemd.package}/lib/systemd/boot/efi/systemd-boot${efiArch}.efi";
+          partitions = {
+            "00-esp" = {
+              contents = {
+                "/EFI/BOOT/BOOT${lib.toUpper efiArch}.EFI".source =
+                  "${config.systemd.package}/lib/systemd/boot/efi/systemd-boot${efiArch}.efi";
 
-                  # The UKI is added by the repart-verity-store module.
+                # The UKI is added by the repart-verity-store module.
 
-                  # systemd-boot configuration
-                  "/loader/loader.conf".source = pkgs.writeText "$out" cfg.loaderConf;
-                };
-                repartConfig = {
-                  Type = "esp";
-                  Format = "vfat";
-                  SizeMinBytes = "${toString cfg.espSizeMiB}M";
-                  SizeMaxBytes = "${toString cfg.espSizeMiB}M";
-                  SplitName = "-";
-                };
+                # systemd-boot configuration
+                "/loader/loader.conf".source = pkgs.writeText "$out" cfg.loaderConf;
               };
-
-              "${config.image.repart.verityStore.partitionIds.store-verity}" = {
-                # The verity partition is configured by the
-                # repart-verity-store module.
-
-                repartConfig = {
-                  Type = "usr-verity";
-                  Label = "store_verity_${config.system.image.version}";
-                  VerityMatchKey = "store_data_${config.system.image.version}";
-                  ReadOnly = "yes";
-                  SplitName = "store_verity_%U";
-                  Minimize = "best";
-
-                  # Shrinks the verity partition to ~0.8% of the data
-                  # instead of ~7% with a small cost in performance.
-                  VerityDataBlockSizeBytes = 4096;
-                  VerityHashBlockSizeBytes = 4096;
-
-                  SizeMinBytes = "${toString storeVeritySizeMiB}M";
-                  SizeMaxBytes = "${toString storeVeritySizeMiB}M";
-
-                  # Stay at minimum size in the image.
-                  Weight = 0;
-                };
-              };
-
-              "${config.image.repart.verityStore.partitionIds.store}" = {
-                # Most of the root partition is configured by the
-                # repart-verity-store module.
-                repartConfig = {
-                  Type = "usr";
-                  Label = "store_data_${config.system.image.version}";
-
-                  Format = "squashfs";
-                  Compression = "zstd";
-
-                  VerityMatchKey = "store_data_${config.system.image.version}";
-                  ReadOnly = "yes";
-                  SplitName = "store_data_%U";
-
-                  SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
-                  SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
-
-                  # Stay at minimum size in the image.
-                  Weight = 0;
-                };
-              };
-            }
-            // lib.optionalAttrs includeUpdateSlots (
-              builtins.mapAttrs (_name: value: { repartConfig = value; }) (
-                lib.filterAttrs (name: _value: lib.hasSuffix "-update" name) config.systemd.repart.partitions
-              )
-            )
-            // lib.optionalAttrs includeSwap {
-              "30-swap".repartConfig = config.systemd.repart.partitions."30-swap";
-            }
-            // lib.optionalAttrs includeUserData {
-              "40-user-data".repartConfig = config.systemd.repart.partitions."40-user-data" // {
+              repartConfig = {
+                Type = "esp";
+                Format = "vfat";
+                SizeMinBytes = "${toString cfg.espSizeMiB}M";
+                SizeMaxBytes = "${toString cfg.espSizeMiB}M";
                 SplitName = "-";
+              };
+            };
+
+            "${config.image.repart.verityStore.partitionIds.store-verity}" = {
+              # The verity partition is configured by the
+              # repart-verity-store module.
+
+              repartConfig = {
+                Type = "usr-verity";
+                Label = "store_verity_${config.system.image.version}";
+                VerityMatchKey = "store_data_${config.system.image.version}";
+                ReadOnly = "yes";
+                SplitName = "store_verity_%U";
+                Minimize = "best";
+
+                # Shrinks the verity partition to ~0.8% of the data
+                # instead of ~7% with a small cost in performance.
+                VerityDataBlockSizeBytes = 4096;
+                VerityHashBlockSizeBytes = 4096;
+
+                SizeMinBytes = "${toString storeVeritySizeMiB}M";
+                SizeMaxBytes = "${toString storeVeritySizeMiB}M";
+
+                # Stay at minimum size in the image.
                 Weight = 0;
               };
             };
+
+            "${config.image.repart.verityStore.partitionIds.store}" = {
+              # Most of the root partition is configured by the
+              # repart-verity-store module.
+              repartConfig = {
+                Type = "usr";
+                Label = "store_data_${config.system.image.version}";
+
+                Format = "squashfs";
+                Compression = "zstd";
+
+                VerityMatchKey = "store_data_${config.system.image.version}";
+                ReadOnly = "yes";
+                SplitName = "store_data_%U";
+
+                SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+                SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+
+                # Stay at minimum size in the image.
+                Weight = 0;
+              };
+            };
+
+            # The physical partition for user data needs to exist for the
+            # system to be bootable.
+            "40-user-data".repartConfig = config.systemd.repart.partitions."40-user-data" // {
+              SplitName = "-";
+              Weight = 0;
+            };
+          };
         };
 
         boot.initrd.systemd.repart = {
@@ -326,7 +299,7 @@ in
               SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
               SplitName = "-";
             })
-          ]) (lib.range (if cfg.inplaceBootable then 2 else 1) cfg.updates.slots)
+          ]) (lib.range 1 cfg.updates.slots)
         );
 
         boot.initrd.systemd.services.systemd-repart = {
