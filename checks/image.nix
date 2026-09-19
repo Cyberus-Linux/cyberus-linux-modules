@@ -1,14 +1,7 @@
 { pkgs, nixosModules }:
 
 let
-  mkImageTest =
-    args:
-    pkgs.callPackage ./image-base.nix (
-      {
-        inherit nixosModules;
-      }
-      // args
-    );
+  mkImageTest = pkgs.callPackage ./image-base.nix ({ inherit nixosModules; });
 
   # Simulate dd'ing the image to a larger block device.
   growImage = ''

@@ -1,7 +1,13 @@
+# `callPackage`-compatible signature.
+# Dependency injection from Nixpkgs
 {
-  name,
   testers,
   nixosModules,
+}:
+
+# Arguments for mkImageTest.
+{
+  name,
   additionalConfig ? { },
   additionalImagePrep ? "",
   testScript ? "",
