@@ -7,3 +7,6 @@ result-*
 
 # Ignore automatically generated pre-commit-config
 .pre-commit-config.yaml
+
+# NixOS integration tests
+.nixos-test-history

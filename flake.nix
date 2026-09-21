@@ -5,7 +5,7 @@
   # different Nixpkgs versions and with Cyberus Linux in the CI.
   inputs = {
     nixpkgs.url = "https://channels.cyberus-linux.com/channel/cyberus-linux-26.05.tar.xz";
-    preCommitHooksNix = {
+    git-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -38,7 +38,7 @@
             (getFlakeInput "nixpkgs").locked.narHash == inputs.nixpkgs.sourceInfo.narHash
           )
           [
-            inputs.preCommitHooksNix.flakeModule
+            inputs.git-hooks.flakeModule
             ./checks/pre-commit.nix
           ];
 

@@ -34,12 +34,33 @@
         "type": "github"
       }
     },
+    "git-hooks": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1788267358,
+        "narHash": "sha256-nt+lUqYVpc9Y6JeMd2WmXzCDojasdadKo0mWcluvY2Y=",
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "rev": "27555e2624241fb116b49095df4caaee85a25691",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "git-hooks.nix",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 315532800,
-        "narHash": "sha256-4/SmRsDCVZx5BILj4Dyf5i66Lni4hdqRRSFCldCy1Ng=",
+        "narHash": "sha256-mXy2w8/+TSK0dFT3NN9KB+hqZFNjPu80E92wXQr5LE8=",
         "type": "tarball",
-        "url": "https://channels.ctrl-os.com/permanent/ctrlos-2d27c9c1abf2fae5c6ddf7051f1c15858c8b5eb7.tar.xz"
+        "url": "https://channels.ctrl-os.com/permanent/ctrlos-eb0d4e34fefabd6a371231a12ab50fa9ef40ed91.tar.xz"
       },
       "original": {
         "type": "tarball",
@@ -61,32 +82,11 @@
         "type": "github"
       }
     },
-    "preCommitHooksNix": {
-      "inputs": {
-        "flake-compat": "flake-compat",
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1787424939,
-        "narHash": "sha256-O2tBn84NNuHrnqNVxx/XqsXwfYvS1YwBh+7CBnbCYsk=",
-        "owner": "cachix",
-        "repo": "git-hooks.nix",
-        "rev": "809414f0cdadf82cf11b06c2b29ba9b3168b3297",
-        "type": "github"
-      },
-      "original": {
-        "owner": "cachix",
-        "repo": "git-hooks.nix",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "flake-parts": "flake-parts",
-        "nixpkgs": "nixpkgs",
-        "preCommitHooksNix": "preCommitHooksNix"
+        "git-hooks": "git-hooks",
+        "nixpkgs": "nixpkgs"
       }
     }
   },
