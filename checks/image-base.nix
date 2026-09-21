@@ -48,7 +48,7 @@ testers.nixosTest {
         version = lib.mkDefault systemVersion;
 
         # Make this a bit larger so we don't make this test flaky.
-        nixStore.maxSizeMiB = 4096;
+        nixStore.sizeMiB = 4096;
       };
     };
 

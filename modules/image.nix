@@ -14,7 +14,7 @@ let
 
   # We need roughly 0.8% for the verity partition. We use 1% to avoid
   # any unfortunate rounding effects.
-  storeVeritySizeMiB = (cfg.userData.maxSizeMiB + 99) / 100;
+  storeVeritySizeMiB = (cfg.nixStore.sizeMiB + 99) / 100;
 in
 {
   imports = [
@@ -81,9 +81,9 @@ in
     };
 
     nixStore = {
-      maxSizeMiB = lib.mkOption {
+      sizeMiB = lib.mkOption {
         description = ''
-          The maximum size of the Nix store partition.
+          The size of the Nix store partition.
 
           This must be set manually, because it determines the size of future
           updates.
@@ -94,19 +94,26 @@ in
     };
 
     userData = {
-      minSizeMiB = lib.mkOption {
+      sizeInImageMiB = lib.mkOption {
         description = ''
-          The minimum size of the user data (root) partition.
+          The size of the user data (root) partition in the image file.
 
-          Creating a tiny filesystem and inflating it later creates
-          suboptimal filesystem structures. Use at least 1 GiB.
+          To avoid creating huge images, we add a small user data partition in the image and inflate it on first
+          boot. This option configures how small that partition will be.
+
+          Note that creating tiny filesystem and inflating it later can create suboptimal filesystem structures. Use at
+          least 1 GiB.
         '';
         type = lib.types.int;
         default = 1024;
       };
 
-      maxSizeMiB = lib.mkOption {
-        description = "The maximum size of the user data (root) partition";
+      sizeMiB = lib.mkOption {
+        description = ''
+          The size of the user data (root) partition.
+
+          During first boot, the user data partition will be resized to this size, if possible.
+        '';
         type = lib.types.ints.unsigned;
         default = 32 * 1024;
       };
@@ -132,7 +139,7 @@ in
           Setting this to 2 creates the classical A/B update system, but more
           slots are possible. Setting this to 1 disables updates.
 
-          Each slot consumes `cyberus-linux.image.nixStore.maxSizeMiB` MiB of
+          Each slot consumes `cyberus-linux.image.nixStore.sizeMiB` MiB of
           storage plus around 1% for integrity checking information.
         '';
         type = lib.types.ints.unsigned;
@@ -169,6 +176,10 @@ in
           {
             assertion = cfg.updates.slots > 0;
             message = "The number of update slots cannot be zero. If you want to disable updates, set them to 1.";
+          }
+          {
+            assertion = cfg.userData.sizeInImageMiB <= cfg.userData.sizeMiB;
+            message = "cyberus-linux.image.userData.sizeInImageMiB cannot be smaller than the final size (sizeMiB).";
           }
         ];
 
@@ -259,8 +270,8 @@ in
                 ReadOnly = "yes";
                 SplitName = "store_data_%U";
 
-                SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
-                SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+                SizeMinBytes = "${toString cfg.nixStore.sizeMiB}M";
+                SizeMaxBytes = "${toString cfg.nixStore.sizeMiB}M";
 
                 # Stay at minimum size in the image.
                 Weight = 0;
@@ -287,8 +298,8 @@ in
             Type = "root";
             Format = "ext4";
 
-            SizeMinBytes = "${toString cfg.userData.minSizeMiB}M";
-            SizeMaxBytes = "${toString cfg.userData.maxSizeMiB}M";
+            SizeMinBytes = "${toString cfg.userData.sizeInImageMiB}M";
+            SizeMaxBytes = "${toString cfg.userData.sizeMiB}M";
 
             Label = "root";
           };
@@ -305,8 +316,8 @@ in
             (lib.nameValuePair "26-${toString updateSlot}-store-update" {
               Type = "usr";
               Format = "empty";
-              SizeMinBytes = "${toString cfg.nixStore.maxSizeMiB}M";
-              SizeMaxBytes = "${toString cfg.nixStore.maxSizeMiB}M";
+              SizeMinBytes = "${toString cfg.nixStore.sizeMiB}M";
+              SizeMaxBytes = "${toString cfg.nixStore.sizeMiB}M";
               SplitName = "-";
             })
           ]) (lib.range 1 cfg.updates.slots)
