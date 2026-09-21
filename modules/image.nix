@@ -358,10 +358,13 @@ in
           after = [
             # We don't want to modify dirty filesystems.
             "systemd-fsck@.service"
+            "systemd-fsck-root.service"
           ];
 
           before = [
             "systemd-veritysetup@usr.service"
+            "systemd-growfs@.service"
+            "systemd-growfs-root.service"
           ];
         };
       }
