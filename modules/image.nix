@@ -26,14 +26,16 @@ in
 
     bootDevice = lib.mkOption {
       description = ''
-        The boot device name (if known).
+        The block device device node of boot device name (if known).
 
-        Setting a boot device creates smaller disk images.
+        Set this to the device the system boots from. This must be a whole block device, not a partition on it.
 
-        When the boot device is known, the initial disk image doesn't
-        need to include the user data partition. It is instead created
-        on first boot. This is a result of a technical limitation in
-        `systemd-repart` and might be resolved eventually.
+        This is usually something like /dev/nvme0n1 (for NVMe) or /dev/sda, but depends on your setup. When left empty,
+        systemd-repart will use heuristics to discover the boot device, which may fail.
+
+        If device names are not stable (USB storage or similar), use the entries from /dev/disk/by-path.
+
+        We suggest setting a boot device, if known.
       '';
 
       type = lib.types.nullOr lib.types.str;
