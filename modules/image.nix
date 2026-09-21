@@ -40,12 +40,6 @@ in
       default = null;
     };
 
-    espSizeMiB = lib.mkOption {
-      description = "The size of the UEFI System Partition (ESP) in MiB";
-      type = lib.types.int;
-      default = 512;
-    };
-
     loaderConf = lib.mkOption {
       description = ''
         The systemd-boot loader.conf configuration file.
@@ -68,6 +62,20 @@ in
       '';
       type = lib.types.str;
       default = "0.0.0";
+    };
+
+    systemPartition = {
+      sizeMiB = lib.mkOption {
+        description = ''
+          The size of the UEFI System Partition (ESP) in MiB.
+
+          Compared to a standard NixOS system, we do not need a lot of space. The system
+          partition needs to be large enough to hold the boot loader (< 1 MiB) and the
+          kernel and initrds for each installed version.
+        '';
+        type = lib.types.int;
+        default = 512;
+      };
     };
 
     nixStore = {
@@ -204,8 +212,8 @@ in
               repartConfig = {
                 Type = "esp";
                 Format = "vfat";
-                SizeMinBytes = "${toString cfg.espSizeMiB}M";
-                SizeMaxBytes = "${toString cfg.espSizeMiB}M";
+                SizeMinBytes = "${toString cfg.systemPartition.sizeMiB}M";
+                SizeMaxBytes = "${toString cfg.systemPartition.sizeMiB}M";
                 SplitName = "-";
               };
             };
