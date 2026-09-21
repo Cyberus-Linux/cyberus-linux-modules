@@ -47,10 +47,10 @@ in
         See [the systemd-boot documentation](https://www.freedesktop.org/software/systemd/man/latest/loader.conf.html)
         for the available options.
       '';
+
+      internal = true;
       type = lib.types.str;
-      default = ''
-        timeout 5
-      '';
+      default = "";
     };
 
     version = lib.mkOption {

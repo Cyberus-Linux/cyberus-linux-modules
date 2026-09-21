@@ -49,9 +49,6 @@ testers.nixosTest {
 
         # Make this a bit larger so we don't make this test flaky.
         nixStore.maxSizeMiB = 4096;
-
-        # Don't waste time in the test.
-        loaderConf = "timeout 0";
       };
     };
 
