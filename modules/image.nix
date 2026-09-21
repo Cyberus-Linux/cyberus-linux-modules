@@ -339,34 +339,15 @@ in
           ];
         };
 
+        boot.initrd.systemd.root = "gpt-auto";
+        boot.initrd.supportedFilesystems = {
+          ext4 = true;
+          sqashfs = true;
+        };
+
         fileSystems = {
-          "/" =
-            let
-              partConf = config.systemd.repart.partitions."40-user-data";
-            in
-            {
-              device = "/dev/disk/by-label/${partConf.Label}";
-              fsType = partConf.Format;
-            };
-
-          "/boot" =
-            let
-              partConf = config.image.repart.partitions."00-esp".repartConfig;
-            in
-            {
-              # We should be able to mount the ESP without the label, but the
-              # by-designator links are not created early enough and we fail in
-              # the update test with: Timed out waiting for device
-              # /dev/disk/by-designator/esp.
-              #
-              # What's strange is that this only happens after an update.
-              #
-              # device = "/dev/disk/by-designator/esp";
-              device = "/dev/disk/by-label/ESP";
-              fsType = partConf.Format;
-            };
-
-          # We don't need a /usr mountpoint. Linux finds it via the verity hash.
+          # We find our filesystems via their partition type UUIDs (ESP, root) or their partition UUIDs (/usr and
+          # dm-verity, deconstructed from the userhash= parameter on the kernel command line).
         };
 
         boot.initrd.systemd.additionalUpstreamUnits = [
