@@ -81,6 +81,10 @@ testers.nixosTest {
       machine.start(allow_reboot=True)
       machine.wait_for_unit("multi-user.target")
 
+      # If we mess up the service dependencies and construct a dependency cycle, systemd can delete the repart
+      # service. We need to check whether it succeeded.
+      t.assertIn("Result=success", machine.succeed("systemctl show -p Result systemd-repart.service"))
+
       ${testScript}
     '';
 }

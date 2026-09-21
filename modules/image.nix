@@ -369,18 +369,18 @@ in
           # We don't need a /usr mountpoint. Linux finds it via the verity hash.
         };
 
+        boot.initrd.systemd.additionalUpstreamUnits = [
+          # The systemd-repart service and the initrd.target refer to this.
+          "initrd-usr-fs.target"
+        ];
+
         # Ensure other services that touch the disk don't interfer.
         boot.initrd.systemd.services."systemd-repart" = {
-          after = [
-            # We don't want to modify dirty filesystems.
-            "systemd-fsck@.service"
-            "systemd-fsck-root.service"
-          ];
-
           before = [
-            "systemd-veritysetup@usr.service"
-            "systemd-growfs@.service"
-            "systemd-growfs-root.service"
+            # FIXME: What do we really need to order repart against?
+            #
+            # "systemd-fsck@.service"
+            # "systemd-fsck-root.service"
           ];
         };
       }
