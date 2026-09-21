@@ -61,8 +61,11 @@ in
 
         Use a value according to the
         [UAPI Version Format Specification](https://uapi-group.org/specifications/specs/version_format_specification).
+
+        Versions are used to decide when to update. We only install updates if their version numbers are newer. Please
+        refer to the above specification for details.
       '';
-      type = lib.types.str;
+      type = lib.types.addCheck lib.types.str (s: (builtins.match "^[a-zA-Z0-9.~_+^-]+$" s) != null);
       default = "0.0.0";
     };
 
