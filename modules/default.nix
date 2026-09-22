@@ -3,4 +3,5 @@
   profiles = import ./profiles;
   vms = import ./vms.nix;
   image = import ./image.nix;
+  deploy-image = import ./deploy-image.nix;
 }

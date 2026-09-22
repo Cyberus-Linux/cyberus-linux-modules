@@ -10,3 +10,6 @@ result-*
 
 # NixOS integration tests
 .nixos-test-history
+
+# Rust
+target
