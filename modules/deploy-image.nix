@@ -51,6 +51,11 @@ in
           wantedBy = [ "multi-user.target" ];
           conflicts = [ "autovt@tty1.service" ];
 
+          path = [
+            # For wipefs
+            pkgs.util-linux
+          ];
+
           serviceConfig = {
             ExecStart = "${pkgs.cyberus-linux-write-image}/bin/write-image ${cfg.sourceImage} ${cfg.targetDevice}";
             StandardInput = "tty";
@@ -61,7 +66,9 @@ in
             TTYVTDisallocate = true;
             Type = "simple";
             Restart = "no";
+          };
 
+          unitConfig = {
             # The write-image tool will just exit and assume that triggers a poweroff event.
             SuccessAction = "poweroff-force";
           };
