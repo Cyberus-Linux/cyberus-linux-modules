@@ -196,6 +196,13 @@ in
           name = "image";
           split = true;
 
+          # By default, the repart module used a fixed UUID as a seed for systemd-repart. This results in identical
+          # GPT/partition UUIDs and confuses the gpt-auto fstab generator when multiple disks carry the same UUIDs.
+          #
+          # By setting this to random by default, we sacrifice reproducibility, but remove a footgun for users. For
+          # people that want reproducibility, we can always expose this through the module API later.
+          seed = lib.mkDefault "random";
+
           # We use dm-verity to permanently bind the /nix/store
           # partition to the kernel. The verity hash is included in
           # the Linux kernel command line. We can never use the wrong
