@@ -182,7 +182,7 @@ in
           }
           {
             assertion = cfg.userData.sizeInImageMiB <= cfg.userData.sizeMiB;
-            message = "cyberus-linux.image.userData.sizeInImageMiB cannot be smaller than the final size (sizeMiB).";
+            message = "cyberus-linux.image.userData.sizeInImageMiB cannot be larger than the final size (sizeMiB).";
           }
         ];
 
