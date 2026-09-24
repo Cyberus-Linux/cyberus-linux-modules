@@ -2,15 +2,23 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
-    DefaultTerminal, Frame,
-    layout::{Alignment, Constraint, Layout},
-    widgets::{Block, Borders, Gauge, Paragraph},
+    DefaultTerminal, Frame, layout::{Alignment, Constraint, Direction, HorizontalAlignment::Center, Layout, Rect}, style::{Color, Modifier, Style, Stylize as _}, widgets::{Block, Borders, Clear, Gauge, Paragraph},
 };
 use std::{
-    fs::File, io::{Read as _, Write as _}, os::unix::fs::OpenOptionsExt, path::{Path, PathBuf}, sync::{Arc, Mutex}, thread::sleep, time::Duration,
+    fs::File,
+    io::{Read as _, Write as _},
+    os::unix::fs::OpenOptionsExt,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    thread::sleep,
+    time::Duration,
 };
 
 const WRITE_CHUNK_SIZE: usize = 16 << 20;
+
+const THEME_COLOR_FG: Color = Color::Magenta;
+const THEME_COLOR_BG: Color = Color::Gray;
+const THEME_COLOR_FAILED: Color = Color::Red;
 
 /// Write an image to a target device
 #[derive(Parser, Debug)]
@@ -23,17 +31,37 @@ struct Args {
     target: PathBuf,
 }
 
-#[derive(Debug, Clone)]
-enum AppState {
-    Wiping,
-    Writing(u16),
-    Failure(String),
-    Done,
+#[derive(Debug, Clone, Copy, Default)]
+enum TaskStatus {
+    #[default]
+    NotStarted,
+    InProgress(u16),
+    Failed,
+    Success,
+}
+
+impl TaskStatus {
+    fn is_terminal(&self) -> bool {
+        matches!(self, TaskStatus::Failed | TaskStatus::Success)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct UiState {
+    wiping: TaskStatus,
+    writing: TaskStatus,
+}
+
+#[derive(Debug, Clone, Default)]
+struct AppState {
+    ui: UiState,
+
+    error: Option<String>,
 }
 
 impl AppState {
     fn is_terminal(&self) -> bool {
-        matches!(self, AppState::Done | AppState::Failure(_))
+        self.error.is_some() || (self.ui.wiping.is_terminal() && self.ui.writing.is_terminal())
     }
 }
 
@@ -48,9 +76,12 @@ impl App {
         state.clone()
     }
 
-    fn set_state(&self, state: AppState) {
+    fn update_state<F>(&self, f: F)
+    where
+        F: FnOnce(&mut AppState),
+    {
         let mut lock = self.state.lock().unwrap();
-        *lock = state;
+        f(&mut lock);
     }
 }
 
@@ -63,9 +94,10 @@ impl App {
 
             if state.is_terminal()
                 && let Event::Key(key) = event::read()?
-                    && key.code == KeyCode::Enter {
-                        break;
-                    }
+                && key.code == KeyCode::Enter
+            {
+                break;
+            }
 
             sleep(Duration::from_millis(100));
         }
@@ -75,79 +107,183 @@ impl App {
 
     fn draw(&self, frame: &mut Frame, state: &AppState) {
         let area = frame.area();
+        let main_block = Block::default()
+            .title(" Cyberus Linux Deployment ")
+            .title_alignment(Center)
+            .title_style(Style::default().fg(THEME_COLOR_FG))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(THEME_COLOR_FG));
+        let inner_area = main_block.inner(area);
 
-        let vertical_layout = Layout::vertical([
-            Constraint::Percentage(40),
-            Constraint::Length(6),
-            Constraint::Percentage(40),
-        ])
-        .split(area);
+        frame.render_widget(main_block, area);
 
-        let center_area = Layout::horizontal([
-            Constraint::Percentage(20),
-            Constraint::Percentage(60),
-            Constraint::Percentage(20),
-        ])
-        .split(vertical_layout[1])[1];
+        let vertical_center = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(6),
+                Constraint::Min(0),
+            ])
+            .split(inner_area)[1];
 
-        let bottom_area =
-            Layout::vertical([Constraint::Min(0), Constraint::Length(2)]).split(area)[1];
+        let horizontal_center = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(80),
+                Constraint::Min(0),
+            ])
+            .split(vertical_center)[1];
 
-        match state {
-            AppState::Wiping => {
-                let widget = Paragraph::new("Wiping old partition tables from device...")
-                    .alignment(Alignment::Center);
-                frame.render_widget(widget, center_area);
-            }
-            AppState::Writing(progress) => {
-                let widget = Gauge::default()
-                    .block(
-                        Block::default()
-                            .title("Writing Image to Disk")
-                            .borders(Borders::ALL),
-                    )
-                    .percent(*progress);
+        let task_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3)])
+            .split(horizontal_center);
 
-                frame.render_widget(widget, center_area);
-            }
-            AppState::Failure(reason) => {
-                let widget = Paragraph::new(format!(
-                    "Failed to write image. Press ENTER to power down.\n{reason}"
-                ))
+        let render_task =
+            |frame: &mut Frame, target_area: Rect, label: &str, status: &TaskStatus| {
+                let chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Length(20), Constraint::Min(0)])
+                    .split(target_area);
+
+                let vertical_label = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Length(1),
+                        Constraint::Length(1),
+                        Constraint::Length(1),
+                    ])
+                    .split(chunks[0]);
+
+                frame.render_widget(Paragraph::new(label).style(Style::default().fg(THEME_COLOR_FG)), vertical_label[1]);
+
+                match status {
+                    TaskStatus::NotStarted | TaskStatus::Failed | TaskStatus::Success => {
+                        let vertical_text = Layout::default()
+                            .direction(Direction::Vertical)
+                            .constraints([
+                                Constraint::Length(1),
+                                Constraint::Length(1),
+                                Constraint::Length(1),
+                            ])
+                            .split(chunks[1]);
+
+                        let (text, color) = match status {
+                            TaskStatus::NotStarted => ("PENDING", THEME_COLOR_FG),
+                            TaskStatus::Failed => ("FAILED", THEME_COLOR_FAILED),
+                            TaskStatus::Success => ("OK", THEME_COLOR_FG),
+                            _ => unreachable!(),
+                        };
+
+                        frame.render_widget(
+                            Paragraph::new(text)
+                                .style(Style::default().fg(color))
+                                .alignment(Alignment::Center),
+                            vertical_text[1],
+                        );
+                    }
+                    TaskStatus::InProgress(pct) => {
+                        let gauge = Gauge::default()
+                            .gauge_style(Style::default().fg(THEME_COLOR_FG).bg(THEME_COLOR_BG))
+                            .percent(*pct);
+                        frame.render_widget(gauge, chunks[1]);
+                    }
+                }
+            };
+
+        render_task(frame, task_chunks[0], "Wiping partitions", &state.ui.wiping);
+        render_task(frame, task_chunks[1], "Writing data", &state.ui.writing);
+
+        fn render_popup(frame: &mut Frame, area: Rect, message: String, color: Color) {
+            let vertical_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(40),
+                    Constraint::Length(10),
+                    Constraint::Percentage(40),
+                ])
+                .split(area);
+
+            let horizontal_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(25),
+                    Constraint::Percentage(50),
+                    Constraint::Percentage(25),
+                ])
+                .split(vertical_chunks[1]);
+
+            let popup_area = horizontal_chunks[1];
+
+            let popup_block = Block::default()
+                .borders(Borders::ALL)
+                .fg(color)
+                .bg(THEME_COLOR_BG);
+
+            let inner_popup_area = popup_block.inner(popup_area);
+            let popup_text_vertical_center = Layout::default()
+                      .direction(Direction::Vertical)
+                      .constraints([
+                          Constraint::Min(0),
+                          Constraint::Length(5),
+                          Constraint::Min(0),
+                      ])
+                      .split(inner_popup_area)[1];
+
+            let popup_text = Paragraph::new(message)
+                .style(Style::default().add_modifier(Modifier::BOLD))
                 .alignment(Alignment::Center);
 
-                frame.render_widget(widget, center_area);
-            }
-            AppState::Done => {
-                let widget = Paragraph::new(
-                    "Everything done! Press ENTER to power down.\nThen remove the installation media and reboot.",
-                )
-                .alignment(Alignment::Center);
+            frame.render_widget(Clear, popup_area);
+            frame.render_widget(popup_block, popup_area);
+            frame.render_widget(popup_text, popup_text_vertical_center);
+        }
 
-                frame.render_widget(widget, center_area);
+        if state.is_terminal() {
+            if let Some(error_msg) = &state.error {
+                let message = format!("An error occurred. Press ENTER to power down.\n\n{error_msg}");
+                render_popup(frame, inner_area, message, THEME_COLOR_FAILED);
+            } else {
+                let message = String::from("Deployment complete.\n\nPress ENTER to power down.");
+                render_popup(frame, inner_area, message, THEME_COLOR_FG);
             }
-        };
-        let text_block =
-            Paragraph::new("Cyberus Linux Image Deployment").alignment(Alignment::Left);
-
-        frame.render_widget(text_block, bottom_area);
+        }
     }
 }
 
-fn wipe_device(state: &App, device: &Path) -> Result<()> {
-    state.set_state(AppState::Wiping);
+fn wipe_device_bare(device: &Path) -> Result<()> {
     let cmd = std::process::Command::new("wipefs")
-        .arg("-a").arg(device).output().context("Failed to execute wipefs")?;
+        .arg("-a")
+        .arg(device)
+        .output()
+        .context("Failed to execute wipefs")?;
     if !cmd.status.success() {
         let stdout = String::from_utf8_lossy(&cmd.stdout);
         let stderr = String::from_utf8_lossy(&cmd.stderr);
-        return Err(anyhow::anyhow!("Failed to wipe device: {}\n{}", stdout, stderr));
+        return Err(anyhow::anyhow!(
+            "Failed to wipe device: {}\n{}",
+            stdout,
+            stderr
+        ));
     }
 
-    // The wipe is pretty much instantaneous, so give the user time to see what happens.
-    sleep(Duration::from_secs(3));
-
     Ok(())
+}
+
+fn wipe_device(state: &App, device: &Path) -> Result<()> {
+    state.update_state(|s| s.ui.wiping = TaskStatus::InProgress(0));
+
+    match wipe_device_bare(device) {
+        Ok(_) => {
+            state.update_state(|s| s.ui.wiping = TaskStatus::Success);
+            Ok(())
+        }
+        Err(e) => {
+            state.update_state(|s| s.ui.wiping = TaskStatus::Failed);
+            Err(e)
+        }
+    }
 }
 
 fn write_data(state: &App, input: &mut File, output: &mut File) -> Result<()> {
@@ -168,8 +304,13 @@ fn write_data(state: &App, input: &mut File, output: &mut File) -> Result<()> {
             .context("Failed to write to output file")?;
 
         bytes_read += read as u64;
-        state.set_state(AppState::Writing((bytes_read * 100 / filesize) as u16));
+
+        state.update_state(|s| {
+            s.ui.writing = TaskStatus::InProgress((bytes_read * 100 / filesize) as u16)
+        });
     }
+
+    state.update_state(|s| s.ui.writing = TaskStatus::Success);
 
     Ok(())
 }
@@ -188,10 +329,7 @@ fn write_image(state: &App, input_file: &Path, output_file: &Path) -> Result<()>
 
     write_data(state, &mut input_file, &mut output_file)?;
 
-    state.set_state(AppState::Done);
-
     Ok(())
-
 }
 
 fn main() -> Result<()> {
@@ -199,7 +337,7 @@ fn main() -> Result<()> {
 
     color_eyre::install().expect("Failed to initialize terminal color support");
 
-    let app_state = Arc::new(Mutex::new(AppState::Wiping));
+    let app_state = Arc::new(Mutex::new(AppState::default()));
     let app = App {
         state: app_state.clone(),
     };
@@ -211,7 +349,7 @@ fn main() -> Result<()> {
 
         std::thread::spawn(move || {
             if let Err(e) = write_image(&app, &input_file, &output_file) {
-                app.set_state(AppState::Failure(e.to_string()));
+                app.update_state(|s| s.error = Some(e.to_string()));
             }
         })
     };
