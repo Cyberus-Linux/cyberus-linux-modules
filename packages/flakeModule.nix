@@ -13,6 +13,7 @@
             {
               scl = config.packages.scl;
               OVMF-cloud-hypervisor = config.packages.OVMF-cloud-hypervisor;
+              cyberus-linux-write-image = config.packages.cyberus-linux-write-image;
             }
           );
       };
