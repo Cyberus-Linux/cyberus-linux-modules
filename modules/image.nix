@@ -223,7 +223,7 @@ in
                 # The UKI is added by the repart-verity-store module.
 
                 # systemd-boot configuration
-                "/loader/loader.conf".source = pkgs.writeText "$out" cfg.loaderConf;
+                "/loader/loader.conf".source = pkgs.writeText "loader.conf" cfg.loaderConf;
               };
               repartConfig = {
                 Type = "esp";
