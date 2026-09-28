@@ -473,6 +473,11 @@ in
 
                 Type = "partition";
                 ReadOnly = "yes";
+
+                # We must explicitly clear any partition flags. The empty update slots created initially are marked as
+                # no-auto. When this flag stays attached to the partition, it will prevent the gpt-auto-generator from
+                # successfully mounting partitions.
+                PartitionFlags = 0;
               };
 
               Transfer = {
@@ -501,6 +506,9 @@ in
 
                 Type = "partition";
                 ReadOnly = "yes";
+
+                # See above for explanation.
+                PartitionFlags = 0;
               };
 
               Transfer = {
