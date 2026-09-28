@@ -342,7 +342,7 @@ in
         boot.initrd.systemd.root = "gpt-auto";
         boot.initrd.supportedFilesystems = {
           ext4 = true;
-          sqashfs = true;
+          squashfs = true;
         };
 
         fileSystems = {
