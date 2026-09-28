@@ -192,6 +192,9 @@ in
         boot.loader.grub.enable = false;
         boot.loader.systemd-boot.enable = false;
 
+        # We mount /usr read-only and thus /usr/bin/env cannot be created. Avoid the ugly warning during startup.
+        system.activationScripts.usrbinenv = lib.mkForce "";
+
         image.repart = {
           name = "image";
           split = true;
