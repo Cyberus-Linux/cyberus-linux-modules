@@ -78,61 +78,79 @@ builtins.listToAttrs (
 
       additionalConfig =
         {
+          pkgs,
           lib,
           config,
           extendModules,
           ...
         }:
+        let
+          # Create an update package in version `from` to version `to`.
+          #
+          # We need to do ugly overrides to get the right version into each version of the image. Better solutions
+          # welcome!
+          mkUpdate = override: to: {
+            source =
+              (extendModules {
+                modules = [
+                  {
+                    cyberus-linux.image.version = lib.mkOverride override to;
+                  }
+                ];
+              }).config.system.build.imageUpdateBundle;
+          };
+        in
         {
-          cyberus-linux.image.version = "1.0.0";
+          cyberus-linux.image.version = lib.mkDefault "1.0.0";
+
           # FIXME: The shared directory is not mounted, so we cannot use copy_from_host.
           # We work around this by bundling the image in the generated image.
           environment.etc.updates =
-            # Only bundle the image in the "outer" system.
-            # If we don't, this `extendModules` also would include an image,
-            # which also would [...] leading to an infinite recursion.
-            lib.mkIf (config.cyberus-linux.image.version == "1.0.0") {
-              source =
-                (extendModules {
-                  modules = [
-                    {
-                      cyberus-linux.image.version = lib.mkForce "1.0.1";
-                    }
-                  ];
-                }).config.system.build.imageUpdateBundle;
+            {
+              "1.0.0" = mkUpdate 100 "1.0.1";
+              "1.0.1" = mkUpdate 99 "2.0.0-rc3";
+            }
+            .${config.cyberus-linux.image.version} or {
+              source = pkgs.emptyDirectory;
             };
+
         };
 
       testScript = ''
-        machine.succeed("mkdir -p /var/updates && chmod 755 /var/updates")
 
-        # Make the bundled image available.
-        machine.succeed("rm -rf /var/updates")
-        machine.succeed("ln -sf /etc/updates /var/updates")
+        def check_update(from_version, to_version):
+            # Make the bundled image available.
+            machine.succeed("rm -f /var/updates")
+            machine.succeed("ln -sf /etc/updates /var/updates")
 
-        current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
-        t.assertIn("1.0.0", current_version)
+            current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
+            t.assertIn(from_version, current_version)
 
-        updates = machine.succeed("updatectl check")
-        t.assertIn("1.0.0 → 1.0.1", updates)
+            updates = machine.succeed("updatectl check")
+            t.assertIn(f"{from_version} → {to_version}", updates)
 
-        # Ensure the update process has completed running.
-        # NOTE: This command likely may not fail on update failures.
-        machine.succeed("updatectl update")
+            # Ensure the update process has completed running.
+            # NOTE: This command likely may not fail on update failures.
+            machine.succeed("updatectl update")
 
-        # For some failure modes, the `updatectl update` command will exit(0)
-        # Additionally, it will print confusing output such as:
-        #     host@1.0.1: ✗ No space left on device
-        #     host@1.0.1: ✓ Already up-to-date
-        # So we need to check the `check` subcommand instead.
-        # This saves a needless reboot in case of failures.
-        output = machine.succeed("updatectl check 2>&1")
-        t.assertIn("No updates available.", output)
+            # For some failure modes, the `updatectl update` command will exit(0)
+            # Additionally, it will print confusing output such as:
+            #     host@1.0.1: ✗ No space left on device
+            #     host@1.0.1: ✓ Already up-to-date
+            # So we need to check the `check` subcommand instead.
+            # This saves a needless reboot in case of failures.
+            output = machine.succeed("updatectl check 2>&1")
+            t.assertIn("No updates available.", output)
 
-        machine.reboot()
+            machine.reboot()
+            check_post_boot_sanity()
 
-        current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
-        t.assertIn("1.0.1", current_version)
+            current_version = machine.succeed("grep IMAGE_VERSION /etc/os-release")
+            t.assertIn(to_version, current_version)
+
+
+        check_update("1.0.0", "1.0.1")
+        check_update("1.0.1", "2.0.0-rc3")
       '';
     })
   ]

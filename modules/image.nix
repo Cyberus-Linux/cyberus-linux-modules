@@ -182,7 +182,7 @@ in
           }
           {
             assertion = cfg.userData.sizeInImageMiB <= cfg.userData.sizeMiB;
-            message = "cyberus-linux.image.userData.sizeInImageMiB cannot be smaller than the final size (sizeMiB).";
+            message = "cyberus-linux.image.userData.sizeInImageMiB cannot be larger than the final size (sizeMiB).";
           }
         ];
 
@@ -223,7 +223,7 @@ in
                 # The UKI is added by the repart-verity-store module.
 
                 # systemd-boot configuration
-                "/loader/loader.conf".source = pkgs.writeText "$out" cfg.loaderConf;
+                "/loader/loader.conf".source = pkgs.writeText "loader.conf" cfg.loaderConf;
               };
               repartConfig = {
                 Type = "esp";
@@ -342,7 +342,7 @@ in
         boot.initrd.systemd.root = "gpt-auto";
         boot.initrd.supportedFilesystems = {
           ext4 = true;
-          sqashfs = true;
+          squashfs = true;
         };
 
         fileSystems = {
@@ -473,6 +473,11 @@ in
 
                 Type = "partition";
                 ReadOnly = "yes";
+
+                # We must explicitly clear any partition flags. The empty update slots created initially are marked as
+                # no-auto. When this flag stays attached to the partition, it will prevent the gpt-auto-generator from
+                # successfully mounting partitions.
+                PartitionFlags = 0;
               };
 
               Transfer = {
@@ -501,6 +506,9 @@ in
 
                 Type = "partition";
                 ReadOnly = "yes";
+
+                # See above for explanation.
+                PartitionFlags = 0;
               };
 
               Transfer = {

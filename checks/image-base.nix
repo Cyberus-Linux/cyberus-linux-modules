@@ -79,11 +79,21 @@ testers.nixosTest {
       os.environ['NIX_DISK_IMAGE'] = tmp_disk_image.name
 
       machine.start(allow_reboot=True)
-      machine.wait_for_unit("multi-user.target")
 
-      # If we mess up the service dependencies and construct a dependency cycle, systemd can delete the repart
-      # service. We need to check whether it succeeded.
-      t.assertIn("Result=success", machine.succeed("systemctl show -p Result systemd-repart.service"))
+      def check_post_boot_sanity():
+        machine.wait_for_unit("multi-user.target")
+
+        # Print the partition table. This is invaluable in debugging any sysupdate issue.
+        print(machine.succeed("lsblk -o NAME,PARTUUID,UUID,LABEL,PARTLABEL,PARTFLAGS"))
+
+        # If we mess up the service dependencies and construct a dependency cycle, systemd can delete the repart
+        # service. We need to check whether it succeeded.
+        t.assertIn("Result=success", machine.succeed("systemctl show -p Result systemd-repart.service"))
+
+        # If the boot magic is messed up, we fail to mount the ESP. This will prevent sysupdate from working.
+        machine.succeed("test -e /boot/EFI")
+
+      check_post_boot_sanity()
 
       ${testScript}
     '';
