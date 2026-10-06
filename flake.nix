@@ -24,6 +24,8 @@
       imports = [
         ./checks
         ./packages/flakeModule.nix
+
+        ./flake-modules
       ]
       ++
         # Only run the `pre-commit` checks when ran using the locked Nixpkgs.

@@ -1,7 +1,7 @@
 { pkgs, nixosModules }:
 
 let
-  mkImageTest' = pkgs.callPackage ./image-base.nix ({ inherit nixosModules; });
+  mkImageTest' = pkgs.callPackage ./image-base.nix { inherit nixosModules; };
 
   mkImageTest =
     attrName:

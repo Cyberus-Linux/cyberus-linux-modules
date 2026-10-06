@@ -52,7 +52,10 @@ in
 
       internal = true;
       type = lib.types.str;
-      default = "";
+      default = ''
+        # Present boot options for enrolling Secure Boot keys.
+        secure-boot-enroll manual
+      '';
     };
 
     version = lib.mkOption {
@@ -165,6 +168,21 @@ in
         default = "/var/updates";
       };
     };
+
+    secure-boot = {
+      enrollKeys = lib.mkOption {
+        description = ''
+          The Secure Boot keys that should be offered to be enrolled when the system is in Setup Mode.
+
+          Each attribute is a directory of authenticated variables as produced by `cysb create-enrollment`. The boot
+          loader will refer to it by its attribute name.
+
+          Enrollment packages do not contain secrets and are safe to commit into Git repositories.
+        '';
+        default = { };
+        type = lib.types.attrsOf lib.types.path;
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -192,9 +210,24 @@ in
         boot.loader.grub.enable = false;
         boot.loader.systemd-boot.enable = false;
 
+        # We mount /usr read-only and thus /usr/bin/env cannot be created. Avoid the ugly warning during startup.
+        system.activationScripts.usrbinenv = lib.mkForce "";
+
         image.repart = {
           name = "image";
+
+          # Including the version in the image name makes the image harder to find than necessary.
+          # But if you need to know the image name, you can try config.image.filePath.
+          version = null;
+
           split = true;
+
+          # By default, the repart module used a fixed UUID as a seed for systemd-repart. This results in identical
+          # GPT/partition UUIDs and confuses the gpt-auto fstab generator when multiple disks carry the same UUIDs.
+          #
+          # By setting this to random by default, we sacrifice reproducibility, but remove a footgun for users. For
+          # people that want reproducibility, we can always expose this through the module API later.
+          seed = lib.mkDefault "random";
 
           # We use dm-verity to permanently bind the /nix/store
           # partition to the kernel. The verity hash is included in
@@ -224,7 +257,12 @@ in
 
                 # systemd-boot configuration
                 "/loader/loader.conf".source = pkgs.writeText "loader.conf" cfg.loaderConf;
-              };
+              }
+              // (lib.mapAttrs' (name: path: {
+                name = "/loader/keys/${name}";
+                value.source = path;
+              }) cfg.secure-boot.enrollKeys);
+
               repartConfig = {
                 Type = "esp";
                 Format = "vfat";
