@@ -1,7 +1,12 @@
 { self, inputs, ... }:
 {
   perSystem =
-    { pkgs, ... }:
+    {
+      pkgs,
+      lib,
+      self',
+      ...
+    }:
     {
       checks = {
         developer = pkgs.callPackage ./developer.nix { inherit (self) nixosModules; };
@@ -11,8 +16,9 @@
           modules = pkgs.callPackage ./modules.nix { inherit (self) nixosModules; };
         }
         // (import ./image.nix {
-          inherit pkgs;
+          inherit pkgs lib;
           inherit (self) nixosModules;
+          inherit (self') packages;
         })
       );
     };

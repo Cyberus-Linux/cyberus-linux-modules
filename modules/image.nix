@@ -52,7 +52,10 @@ in
 
       internal = true;
       type = lib.types.str;
-      default = "";
+      default = ''
+        # Present boot options for enrolling Secure Boot keys.
+        secure-boot-enroll manual
+      '';
     };
 
     version = lib.mkOption {
@@ -165,6 +168,21 @@ in
         default = "/var/updates";
       };
     };
+
+    secure-boot = {
+      enrollKeys = lib.mkOption {
+        description = ''
+          The Secure Boot keys that should be offered to be enrolled when the system is in Setup Mode.
+
+          Each attribute is a directory of authenticated variables as produced by `cysb create-enrollment`. The boot
+          loader will refer to it by its attribute name.
+
+          Enrollment packages do not contain secrets and are safe to commit into Git repositories.
+        '';
+        default = { };
+        type = lib.types.attrsOf lib.types.path;
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable (
@@ -224,7 +242,12 @@ in
 
                 # systemd-boot configuration
                 "/loader/loader.conf".source = pkgs.writeText "loader.conf" cfg.loaderConf;
-              };
+              }
+              // (lib.mapAttrs' (name: path: {
+                name = "/loader/keys/${name}";
+                value.source = path;
+              }) cfg.secure-boot.enrollKeys);
+
               repartConfig = {
                 Type = "esp";
                 Format = "vfat";

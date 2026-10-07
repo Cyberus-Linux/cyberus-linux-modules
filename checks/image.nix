@@ -1,7 +1,12 @@
-{ pkgs, nixosModules }:
+{
+  pkgs,
+  packages,
+  lib,
+  nixosModules,
+}:
 
 let
-  mkImageTest' = pkgs.callPackage ./image-base.nix ({ inherit nixosModules; });
+  mkImageTest' = pkgs.callPackage ./image-base.nix { inherit nixosModules; };
 
   mkImageTest =
     attrName:
@@ -22,23 +27,10 @@ let
               config = {
               };
             };
-            additionalImagePrep = growImage;
           }
         );
       }
     ];
-
-  # Simulate dd'ing the image to a larger block device.
-  growImage = ''
-    subprocess.run([
-      qemu_img_bin,
-      "resize",
-      "-f",
-      "qcow2",
-      tmp_disk_image.name,
-      "+32G"
-    ])
-  '';
 in
 builtins.listToAttrs (
   builtins.concatLists [
@@ -153,5 +145,78 @@ builtins.listToAttrs (
         check_update("1.0.1", "2.0.0-rc3")
       '';
     })
+
+    (
+      let
+        runCysb =
+          name: script:
+          pkgs.runCommand name {
+            nativeBuildInputs = [ packages.cysb ];
+          } script;
+
+        secureBootKeys = runCysb "secure-boot-keys" ''
+          cysb init-ca -o $out
+        '';
+
+        enrollmentPackage = runCysb "enrollment-package" ''
+          K=${secureBootKeys}
+          cysb create-enrollment \
+            --owner-guid "$(cat $K/public/guid.txt)" \
+            --pk-key $K/private/pk.key --pk-certificate $K/public/pk.crt \
+            --kek-key $K/private/kek.key --kek-certificate $K/public/kek.crt \
+            --signing-ca-certificate $K/public/signing-ca.crt \
+            -o $out
+        '';
+
+        signingKey = runCysb "signing-key" ''
+          cysb create-signing-key -o $out/
+          cysb issue-signing-certificate \
+            --signing-ca-key ${secureBootKeys}/private/signing-ca.key \
+            --signing-ca-certificate ${secureBootKeys}/public/signing-ca.crt \
+            --csr $out/signing.csr \
+            -o $out/signing.crt
+
+          rm $out/signing.csr
+        '';
+
+        blessImage = ''
+          orig_raw_image = raw_image
+          modified_raw_image = tempfile.NamedTemporaryFile()
+          raw_image = modified_raw_image.name
+
+          # Preserve sparseness of the raw image to save space.
+          subprocess.run(["cp", "--sparse=always", orig_raw_image, raw_image], check=True)
+
+          # cysb bless-image only understands raw images.
+          subprocess.run([
+            "${lib.getExe packages.cysb}",
+            "bless-image",
+            "--private-key",
+            "${signingKey}/signing.key",
+            "--certificate",
+            "${signingKey}/signing.crt",
+            raw_image,
+          ], check=True)
+        '';
+      in
+      mkImageTest "imageSecureBoot" {
+        name = "Image Test (Secure Boot)";
+
+        additionalImagePrep = blessImage;
+
+        additionalConfig = {
+          cyberus-linux.image = {
+            loaderConf = ''
+              secure-boot-enroll-timeout-sec 0
+              secure-boot-enroll force
+            '';
+            secure-boot.enrollKeys.auto = enrollmentPackage;
+          };
+        };
+        testScript = ''
+          t.assertIn("Secure Boot: enabled (user)", machine.succeed('bootctl'))
+        '';
+      }
+    )
   ]
 )

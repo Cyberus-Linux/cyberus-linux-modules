@@ -15,7 +15,8 @@ let
         {
           imports = [ "${modulesPath}/image/repart.nix" ];
         }
-      )).options.image.repart or { } ? enable
+      )).options.image.repart or { }
+      ? enable
     );
   check = import ../lib/check-modules-no-ops.nix {
     inherit pkgs;

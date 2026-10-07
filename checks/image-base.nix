@@ -11,17 +11,26 @@
   additionalConfig ? { },
   additionalImagePrep ? "",
   testScript ? "",
+  finalImageSizeGiB ? 32,
 }:
 
 let
   systemVersion = "1.0.0";
 
-  # Disable the VM boot shortcuts, because they interfere with booting the image.
-  testCompatibility = { lib, ... }: {
-    virtualisation.directBoot.enable = false;
-    virtualisation.mountHostNixStore = false;
-    virtualisation.useEFIBoot = true;
-    virtualisation.fileSystems = lib.mkForce { };
+  testCompatibility = { lib, pkgs, ... }: {
+    virtualisation = {
+      # Disable the VM boot shortcuts, because they interfere with booting the image.
+      directBoot.enable = false;
+      mountHostNixStore = false;
+      fileSystems = lib.mkForce { };
+
+      # Enable full UEFI and Secure Boot support.
+      useEFIBoot = true;
+      useSecureBoot = true;
+      tpm.enable = true;
+      efi.OVMF = pkgs.OVMFFull.fd;
+      efi.keepVariables = true;
+    };
   };
 in
 testers.nixosTest {
@@ -60,21 +69,32 @@ testers.nixosTest {
       import tempfile
 
       qemu_img_bin = "${nodes.machine.virtualisation.qemu.package}/bin/qemu-img"
-      tmp_disk_image = tempfile.NamedTemporaryFile()
+      raw_image = "${nodes.machine.system.build.image}/${nodes.machine.image.filePath}"
 
+      # Give a script the opportunity to fiddle with raw_image.
+      ${additionalImagePrep}
+
+      tmp_disk_image = tempfile.NamedTemporaryFile()
       subprocess.run([
         qemu_img_bin,
         "create",
         "-f",
         "qcow2",
         "-b",
-        "${nodes.machine.system.build.image}/${nodes.machine.image.filePath}",
+        raw_image,
         "-F",
         "raw",
         tmp_disk_image.name,
       ])
 
-      ${additionalImagePrep}
+      subprocess.run([
+        qemu_img_bin,
+        "resize",
+        "-f",
+        "qcow2",
+        tmp_disk_image.name,
+        "+${toString finalImageSizeGiB}G"
+      ])
 
       os.environ['NIX_DISK_IMAGE'] = tmp_disk_image.name
 

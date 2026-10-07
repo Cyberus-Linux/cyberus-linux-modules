@@ -1,0 +1,16 @@
+[package]
+name = "cysb"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+fatfs = "0.3.6"
+fscommon = "0.1.1"
+gpt = { version = "4.1.0", features = ["log"] }
+log = "0.4.34"
+openssl = "0.10.81"
+stderrlog = "0.6.0"
+tempfile = "3.27.0"
+uuid = { version = "1.26.1", features = ["v4"] }
